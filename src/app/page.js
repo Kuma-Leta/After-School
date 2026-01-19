@@ -13,19 +13,19 @@ export default async function Home() {
     <div className="min-h-screen bg-gradient-to-br from-[#1F1F1F]/5 to-white">
       {/* Navigation */}
       <nav className="px-4 sm:px-6 lg:px-8 py-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex flex-wrap gap-4 justify-between items-center">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-[#FF1E00] rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">AS</span>
             </div>
             <div>
-              <span className="text-2xl font-bold text-[#1F1F1F]">
+              <span className="text-xl sm:text-2xl font-bold text-[#1F1F1F]">
                 After<span className="text-[#FF1E00]">School</span>
               </span>
               <p className="text-xs text-gray-500 -mt-1">Ethiopia</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {isLoggedIn ? (
               <Link
                 href="/dashboard"
@@ -61,7 +61,7 @@ export default async function Home() {
               🇪🇹 Made for Ethiopia
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F1F1F] leading-tight">
-              Connect Ethiopia's{" "}
+              Connect Ethiopia&apos;s{" "}
               <span className="text-[#FF1E00]">Brightest</span> Minds with
               Opportunities
             </h1>
@@ -70,7 +70,7 @@ export default async function Home() {
               and educational institutions. Find tutors, teaching assistants,
               and educational staff across Ethiopia.
             </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start w-full">
               {!isLoggedIn ? (
                 <>
                   <Link
@@ -249,7 +249,7 @@ export default async function Home() {
                       Local Focus
                     </h4>
                     <p className="text-gray-600 text-sm mt-1">
-                      Designed specifically for Ethiopia's education needs
+                      Designed specifically for Ethiopia&apos;s education needs
                     </p>
                   </div>
                 </div>
@@ -316,7 +316,7 @@ export default async function Home() {
               </h2>
               <p className="text-white/90 text-xl mb-8 max-w-2xl mx-auto">
                 Join hundreds of educators, students, and organizations building
-                Ethiopia's educational future.
+                Ethiopia&apos;s educational future.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
@@ -354,13 +354,13 @@ export default async function Home() {
                     After<span className="text-[#FF1E00]">School</span>
                   </span>
                   <p className="text-gray-400 text-sm">
-                    Ethiopia's Education Network
+                    Ethiopia&apos;s Education Network
                   </p>
                 </div>
               </div>
               <p className="text-gray-400 max-w-md">
-                Connecting Ethiopia's education ecosystem through technology and
-                innovation.
+                Connecting Ethiopia&apos;s education ecosystem through
+                technology and innovation.
               </p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
