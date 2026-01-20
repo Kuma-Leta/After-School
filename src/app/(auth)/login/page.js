@@ -1,28 +1,69 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user } = useAuth(); // Get auth state from context
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  // Redirect if already logged in
+  const authCheckRef = useRef(false);
+
+  // Check if user is already logged in
   useEffect(() => {
-    if (user) {
-      console.log("User already logged in, redirecting to dashboard");
-      router.push("/profile");
+    if (authCheckRef.current) return;
+    authCheckRef.current = true;
+
+    async function checkAuth() {
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          setAuthChecked(true);
+          return;
+        }
+
+        if (session) {
+          // Get redirect URL from query params or default to dashboard
+          const redirectTo = searchParams.get("redirect") || "/dashboard";
+          console.log("Already logged in, redirecting to:", redirectTo);
+
+          // Try multiple approaches to ensure redirect works
+          try {
+            // First try replace
+            router.replace(redirectTo);
+            // Force a refresh to update middleware/auth state
+            setTimeout(() => {
+              router.refresh();
+            }, 100);
+          } catch (routerError) {
+            console.error("Router error:", routerError);
+            // Fallback to push
+            router.push(redirectTo);
+          }
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+      } finally {
+        setAuthChecked(true);
+      }
     }
-  }, [user, router]);
+
+    checkAuth();
+  }, [router, searchParams]); // Add searchParams to dependencies
 
   const handleChange = (e) => {
     setFormData({
@@ -38,60 +79,65 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email.trim(),
-        password: formData.password,
-      });
+      const { data, error: authError } = await supabase.auth.signInWithPassword(
+        {
+          email: formData.email.trim(),
+          password: formData.password,
+        },
+      );
 
-      if (error) throw error;
+      if (authError) {
+        // Handle specific errors
+        if (authError.message.includes("Invalid login credentials")) {
+          throw new Error("Invalid email or password. Please try again.");
+        } else if (authError.message.includes("Email not confirmed")) {
+          throw new Error("Please confirm your email before logging in.");
+        } else if (authError.message.includes("rate limit")) {
+          throw new Error(
+            "Too many attempts. Please try again in a few minutes.",
+          );
+        } else {
+          throw authError;
+        }
+      }
 
-      // Wait a moment for the auth state to update
-      console.log("Login successful, waiting for auth state update...");
+      console.log("Login successful, user:", data.user?.email);
 
-      // Small delay to ensure auth state is updated
+      // IMPORTANT: Wait a moment for session to be established
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Check if user is actually logged in
+      // Verify session was created
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
-      if (session) {
-        console.log("Session confirmed, redirecting to dashboard");
-        // Force a hard navigation to ensure proper state
-        window.location.href = "/profile";
-      } else {
-        throw new Error("Session not established");
+      if (!session) {
+        throw new Error("Session not created. Please try again.");
       }
+
+      // Get redirect URL
+      const redirectTo = searchParams.get("redirect") || "/dashboard";
+      console.log("Redirecting to:", redirectTo);
+
+      // Force hard navigation to ensure middleware runs
+      window.location.href = redirectTo;
+
+      // Alternative: Use router with refresh
+      // router.replace(redirectTo);
+      // router.refresh();
     } catch (err) {
-      console.error("Login error details:", err);
-
-      // Better error messages
-      let errorMessage = "Login failed. Please check your credentials.";
-      if (err.message.includes("Invalid login credentials")) {
-        errorMessage = "Invalid email or password. Please try again.";
-      } else if (err.message.includes("Email not confirmed")) {
-        errorMessage =
-          "Please confirm your email before logging in. Check your inbox.";
-      } else if (err.message.includes("rate limit")) {
-        errorMessage = "Too many attempts. Please try again in a few minutes.";
-      } else if (err.message.includes("Session not established")) {
-        errorMessage = "Login successful but session issue. Please try again.";
-      }
-
-      setError(errorMessage);
-    } finally {
+      console.error("Login error:", err);
+      setError(err.message || "Login failed. Please check your credentials.");
       setLoading(false);
     }
   };
 
   // Show loading while checking auth
-  if (user) {
+  if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF1E00] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -227,7 +273,7 @@ export default function LoginPage() {
           {/* Demo credentials for testing */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500 text-center">
-              For testing: demo@afterschool.com / demodemo
+              For testing: test@example.com / password123
             </p>
           </div>
         </div>
