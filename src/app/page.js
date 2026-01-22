@@ -1,6 +1,7 @@
 // app/page.js
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { GraduationCap, School, BookOpen, Users } from "lucide-react";
 
 export default async function Home() {
   // Check if user is logged in to show appropriate CTAs
@@ -61,30 +62,38 @@ export default async function Home() {
               🇪🇹 Made for Ethiopia
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F1F1F] leading-tight">
-              Connect Ethiopia&apos;s{" "}
-              <span className="text-[#FF1E00]">Brightest</span> Minds with
-              Opportunities
+              Ethiopia’s #1 Platform for
+              <span className="text-[#FF1E00]"> Teaching Jobs & Tutors</span>
             </h1>
-            <p className="mt-6 text-xl text-gray-600 max-w-2xl">
-              AfterSchool bridges the gap between qualified educators, students,
-              and educational institutions. Find tutors, teaching assistants,
-              and educational staff across Ethiopia.
+
+            <p className="mt-6 text-lg text-gray-600 max-w-xl">
+              Find teaching jobs, hire qualified educators, and connect with
+              tutors — all in one platform built for Ethiopia.
             </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start w-full">
+
+            <div className="mt-12 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start w-full">
               {!isLoggedIn ? (
                 <>
+                  {/* Primary CTA */}
                   <Link
                     href="/register?role=teacher"
-                    className="px-8 py-4 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
+                    className="relative px-8 py-4 bg-[#FF1E00] text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group overflow-hidden"
                   >
-                    <span>Find Teaching Jobs</span>
-                    <span className="group-hover:translate-x-1 transition-transform">
+                    <span className="relative z-10">Find Teaching Jobs</span>
+                    <span className="relative z-10 group-hover:translate-x-1 transition-transform">
                       →
                     </span>
+
+                    {/* Hover glow */}
+                    <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition" />
                   </Link>
+
+                  {/* Secondary CTA */}
                   <Link
                     href="/register?role=school"
-                    className="px-8 py-4 bg-white text-[#1F1F1F] border-2 border-[#1F1F1F] rounded-lg hover:bg-[#1F1F1F] hover:text-white transition-colors font-medium text-lg"
+                    className="px-8 py-4 rounded-xl font-semibold text-lg border-2 border-[#1F1F1F] text-[#1F1F1F] bg-white
+                   hover:bg-[#1F1F1F] hover:text-white hover:shadow-md
+                   transition-all duration-200 flex items-center justify-center"
                   >
                     Hire Qualified Talent
                   </Link>
@@ -92,7 +101,7 @@ export default async function Home() {
               ) : (
                 <Link
                   href="/dashboard"
-                  className="px-8 py-4 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium text-lg shadow-lg"
+                  className="px-8 py-4 bg-[#FF1E00] text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center"
                 >
                   Go to Your Dashboard
                 </Link>
@@ -100,68 +109,93 @@ export default async function Home() {
             </div>
 
             {/* Stats */}
-            <div className="mt-12 flex flex-wrap gap-8 justify-center lg:justify-start">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-[#1F1F1F]">500+</div>
-                <div className="text-gray-600 text-sm mt-1">
+            <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto lg:mx-0">
+              {/* Stat 1 */}
+              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                <div className="text-4xl font-extrabold text-[#1F1F1F]">
+                  500<span className="text-[#FF1E00]">+</span>
+                </div>
+                <div className="text-gray-600 text-sm mt-2">
                   Qualified Teachers
                 </div>
+                <p className="text-xs text-gray-400 mt-1">Verified profiles</p>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-[#1F1F1F]">150+</div>
-                <div className="text-gray-600 text-sm mt-1">Schools & NGOs</div>
+
+              {/* Stat 2 */}
+              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                <div className="text-4xl font-extrabold text-[#1F1F1F]">
+                  150<span className="text-[#FF1E00]">+</span>
+                </div>
+                <div className="text-gray-600 text-sm mt-2">Schools & NGOs</div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Nationwide partners
+                </p>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-[#1F1F1F]">95%</div>
-                <div className="text-gray-600 text-sm mt-1">Success Rate</div>
+
+              {/* Stat 3 */}
+              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                <div className="text-4xl font-extrabold text-[#1F1F1F]">
+                  95<span className="text-[#FF1E00]">%</span>
+                </div>
+                <div className="text-gray-600 text-sm mt-2">Success Rate</div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Successful placements
+                </p>
               </div>
             </div>
           </div>
           <div className="mt-12 lg:mt-0 lg:w-1/2">
-            <div className="bg-gradient-to-br from-[#1F1F1F] to-[#2A2A2A] rounded-2xl p-8 shadow-2xl">
+            <div className="bg-[#F9FAFB] rounded-2xl p-8 border border-gray-200">
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-transform">
+                {/* For Teachers */}
+                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
                   <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <span className="text-2xl text-[#FF1E00]">👨‍🏫</span>
+                    <GraduationCap className="w-6 h-6 text-[#FF1E00]" />
                   </div>
                   <div className="text-lg font-semibold text-[#1F1F1F]">
                     For Teachers
                   </div>
                   <div className="text-sm text-gray-600 mt-2">
-                    Find jobs that match your skills
+                    Find teaching jobs that match your skills
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-transform">
+
+                {/* For Schools */}
+                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
                   <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <span className="text-2xl text-[#FF1E00]">🏫</span>
+                    <School className="w-6 h-6 text-[#FF1E00]" />
                   </div>
                   <div className="text-lg font-semibold text-[#1F1F1F]">
                     For Schools
                   </div>
                   <div className="text-sm text-gray-600 mt-2">
-                    Hire verified educators
+                    Hire verified and experienced educators
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-transform">
+
+                {/* For Students */}
+                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
                   <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <span className="text-2xl text-[#FF1E00]">🎓</span>
+                    <BookOpen className="w-6 h-6 text-[#FF1E00]" />
                   </div>
                   <div className="text-lg font-semibold text-[#1F1F1F]">
                     For Students
                   </div>
                   <div className="text-sm text-gray-600 mt-2">
-                    Part-time work opportunities
+                    Flexible part-time teaching opportunities
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-transform">
+
+                {/* For Families */}
+                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
                   <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <span className="text-2xl text-[#FF1E00]">👨‍👩‍👧</span>
+                    <Users className="w-6 h-6 text-[#FF1E00]" />
                   </div>
                   <div className="text-lg font-semibold text-[#1F1F1F]">
                     For Families
                   </div>
                   <div className="text-sm text-gray-600 mt-2">
-                    Private tutors for your children
+                    Find trusted private tutors for your children
                   </div>
                 </div>
               </div>
@@ -171,125 +205,131 @@ export default async function Home() {
 
         {/* How It Works */}
         <section className="mt-32">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-[#1F1F1F] mb-4">
+          {/* Header */}
+          <div className="text-center mb-14">
+            <span className="inline-block text-sm font-semibold text-[#FF1E00] bg-[#FF1E00]/10 px-4 py-1 rounded-full mb-4">
               How It Works
+            </span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-[#1F1F1F] mb-4">
+              Get Started in 3 Simple Steps
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Simple three-step process to connect educators with opportunities
+            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+              A simple and transparent process connecting educators with the
+              right opportunities.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 hover:border-[#FF1E00]/20 transition-colors">
-              <div className="w-14 h-14 bg-[#FF1E00]/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl text-[#FF1E00]">1</span>
+
+          {/* Steps */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Step 1 */}
+            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
+                1
               </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mb-4">
+              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
                 Create Your Profile
               </h3>
-              <p className="text-gray-600">
-                Teachers and students create detailed profiles with
+              <p className="text-gray-600 leading-relaxed">
+                Teachers and students build detailed profiles including
                 qualifications, subjects, experience, and availability.
               </p>
             </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 hover:border-[#FF1E00]/20 transition-colors">
-              <div className="w-14 h-14 bg-[#FF1E00]/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl text-[#FF1E00]">2</span>
+
+            {/* Step 2 */}
+            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
+                2
               </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mb-4">
+              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
                 Browse & Apply
               </h3>
-              <p className="text-gray-600">
-                Schools and organizations post jobs. Find opportunities that
+              <p className="text-gray-600 leading-relaxed">
+                Schools and organizations post opportunities. Find jobs that
                 match your skills and apply directly.
               </p>
             </div>
-            <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 hover:border-[#FF1E00]/20 transition-colors">
-              <div className="w-14 h-14 bg-[#FF1E00]/10 rounded-xl flex items-center justify-center mb-6">
-                <span className="text-2xl text-[#FF1E00]">3</span>
+
+            {/* Step 3 */}
+            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
+                3
               </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mb-4">
+              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
                 Connect & Teach
               </h3>
-              <p className="text-gray-600">
-                Communicate through our secure platform, complete hiring
-                process, and start making an impact.
+              <p className="text-gray-600 leading-relaxed">
+                Communicate securely, complete the hiring process, and start
+                making a real impact through teaching.
               </p>
             </div>
           </div>
         </section>
 
         {/* Benefits */}
-        <section className="mt-32 bg-gradient-to-r from-[#FF1E00]/5 to-transparent rounded-3xl p-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-[#1F1F1F] mb-6">
-                Why Choose AfterSchool?
-              </h2>
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#FF1E00]">✓</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[#1F1F1F]">
-                      Verified Profiles
-                    </h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      All educators are verified with academic credentials
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#FF1E00]">✓</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[#1F1F1F]">
-                      Local Focus
-                    </h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Designed specifically for Ethiopia&apos;s education needs
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#FF1E00]">✓</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[#1F1F1F]">
-                      Secure Communication
-                    </h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Built-in messaging with safety features
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#FF1E00]">✓</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[#1F1F1F]">
-                      Flexible Payments
-                    </h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Local payment options including Chapa and Telebirr
-                    </p>
-                  </div>
+        <section className="mt-32 px-4 sm:px-6 lg:px-0">
+          <div
+            className="bg-gradient-to-r from-[#FF1E00]/5 to-transparent rounded-3xl 
+                  p-8 sm:p-10 lg:p-12 max-w-7xl mx-auto"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              {/* Left Content */}
+              <div>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1F1F1F] mb-6">
+                  Why Choose AfterSchool?
+                </h2>
+
+                <div className="space-y-6">
+                  {[
+                    {
+                      title: "Verified Profiles",
+                      desc: "All educators are verified with academic credentials",
+                    },
+                    {
+                      title: "Local Focus",
+                      desc: "Designed specifically for Ethiopia’s education needs",
+                    },
+                    {
+                      title: "Secure Communication",
+                      desc: "Built-in messaging with safety features",
+                    },
+                    {
+                      title: "Flexible Payments",
+                      desc: "Local payment options including Chapa and Telebirr",
+                    },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-4">
+                      <div className="w-9 h-9 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-[#FF1E00] font-bold">✓</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-[#1F1F1F] text-base">
+                          {item.title}
+                        </h4>
+                        <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-            <div className="bg-white p-8 rounded-2xl shadow-xl">
-              <div className="aspect-video bg-gradient-to-br from-[#1F1F1F] to-[#2A2A2A] rounded-xl flex items-center justify-center">
-                <div className="text-center text-white p-8">
-                  <div className="text-4xl mb-4">🎯</div>
-                  <h3 className="text-2xl font-bold mb-2">Perfect Match</h3>
-                  <p>
-                    Our algorithm connects the right educators with the right
-                    opportunities
-                  </p>
+
+              {/* Right Visual Card */}
+              <div className="w-full">
+                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl">
+                  <div
+                    className="aspect-video rounded-xl bg-gradient-to-br from-[#1F1F1F] to-[#2A2A2A] 
+                          flex items-center justify-center"
+                  >
+                    <div className="text-center text-white px-6">
+                      <div className="text-4xl mb-4">🎯</div>
+                      <h3 className="text-2xl font-bold mb-2">Perfect Match</h3>
+                      <p className="text-sm sm:text-base text-white/90">
+                        Our algorithm connects the right educators with the
+                        right opportunities
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -297,41 +337,60 @@ export default async function Home() {
         </section>
 
         {/* CTA Section */}
-        <section className="mt-32 text-center">
-          <div className="bg-gradient-to-r from-[#FF1E00] to-[#FF4D00] rounded-2xl p-12 relative overflow-hidden">
-            {/* Background pattern */}
-            <div className="absolute inset-0 opacity-10">
+        <section className="mt-32 px-4 sm:px-6 lg:px-0">
+          <div
+            className="relative max-w-7xl mx-auto overflow-hidden rounded-3xl
+                  bg-gradient-to-r from-[#FF1E00] to-[#FF4D00]"
+          >
+            {/* Subtle background pattern */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div
                 className="absolute inset-0"
                 style={{
-                  backgroundImage: `radial-gradient(circle at 25px 25px, white 2%, transparent 0%), radial-gradient(circle at 75px 75px, white 2%, transparent 0%)`,
-                  backgroundSize: "100px 100px",
+                  backgroundImage: `
+            radial-gradient(circle at 20px 20px, white 2%, transparent 0%),
+            radial-gradient(circle at 80px 80px, white 2%, transparent 0%)
+          `,
+                  backgroundSize: "120px 120px",
                 }}
-              ></div>
+              />
             </div>
 
-            <div className="relative z-10">
-              <h2 className="text-3xl font-bold text-white mb-6">
+            {/* Content */}
+            <div className="relative z-10 px-6 sm:px-10 lg:px-16 py-14 sm:py-16 text-center">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-6 leading-tight">
                 Ready to Transform Education in Ethiopia?
               </h2>
-              <p className="text-white/90 text-xl mb-8 max-w-2xl mx-auto">
-                Join hundreds of educators, students, and organizations building
-                Ethiopia&apos;s educational future.
+
+              <p className="text-white/90 text-base sm:text-lg lg:text-xl mb-10 max-w-3xl mx-auto">
+                Join hundreds of educators, students, and organizations shaping
+                Ethiopia&apos;s educational future—together.
               </p>
+
+              {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href={isLoggedIn ? "/dashboard" : "/register"}
-                  className="inline-flex items-center justify-center px-10 py-4 bg-white text-[#FF1E00] rounded-lg hover:bg-gray-100 transition-colors font-bold text-lg shadow-2xl hover:shadow-3xl"
+                  className="inline-flex items-center justify-center px-10 py-4
+                     bg-white text-[#FF1E00] rounded-xl font-bold text-lg
+                     shadow-xl hover:shadow-2xl hover:-translate-y-0.5
+                     transition-all duration-200"
                 >
                   {isLoggedIn ? "Go to Dashboard" : "Start Free Today"}
                 </Link>
+
                 <Link
                   href="/about"
-                  className="inline-flex items-center justify-center px-10 py-4 bg-transparent text-white border-2 border-white/30 rounded-lg hover:bg-white/10 transition-colors font-medium text-lg"
+                  className="inline-flex items-center justify-center px-10 py-4
+                     bg-white/10 text-white border border-white/30 rounded-xl
+                     font-medium text-lg hover:bg-white/20
+                     transition-colors"
                 >
                   Learn More
                 </Link>
               </div>
+
+              {/* Trust Note */}
               <p className="text-white/70 text-sm mt-6">
                 No credit card required • Free for educators to join
               </p>
@@ -341,10 +400,12 @@ export default async function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1F1F1F] text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div className="mb-8 md:mb-0">
+      <footer className="bg-[#1F1F1F] text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+          {/* Top Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+            {/* Brand */}
+            <div className="lg:col-span-1">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-[#FF1E00] rounded-xl flex items-center justify-center">
                   <span className="text-white font-bold text-lg">AS</span>
@@ -358,15 +419,19 @@ export default async function Home() {
                   </p>
                 </div>
               </div>
-              <p className="text-gray-400 max-w-md">
+
+              <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
                 Connecting Ethiopia&apos;s education ecosystem through
-                technology and innovation.
+                technology, opportunity, and innovation.
               </p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+
+            {/* Links */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 lg:col-span-3">
+              {/* Platform */}
               <div>
                 <h4 className="font-semibold text-white mb-4">Platform</h4>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-sm">
                   <li>
                     <Link
                       href="/find-jobs"
@@ -393,9 +458,11 @@ export default async function Home() {
                   </li>
                 </ul>
               </div>
+
+              {/* Company */}
               <div>
                 <h4 className="font-semibold text-white mb-4">Company</h4>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-sm">
                   <li>
                     <Link
                       href="/about"
@@ -417,14 +484,16 @@ export default async function Home() {
                       href="/privacy"
                       className="text-gray-400 hover:text-white transition-colors"
                     >
-                      Privacy
+                      Privacy Policy
                     </Link>
                   </li>
                 </ul>
               </div>
+
+              {/* Support */}
               <div>
                 <h4 className="font-semibold text-white mb-4">Support</h4>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-sm">
                   <li>
                     <Link
                       href="/help"
@@ -453,16 +522,21 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <div className="text-gray-400 text-sm">
+
+          {/* Bottom Bar */}
+          <div className="border-t border-gray-800 mt-12 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-gray-400 text-sm text-center sm:text-left">
               © {new Date().getFullYear()} AfterSchool Ethiopia. All rights
               reserved.
-            </div>
-            <div className="flex items-center space-x-6 mt-4 md:mt-0">
+            </p>
+
+            <div className="flex items-center gap-6">
               <span className="text-gray-400 text-sm">
                 Addis Ababa, Ethiopia
               </span>
-              <div className="flex space-x-4">
+
+              {/* Social Icons */}
+              <div className="flex gap-4 text-lg">
                 <a
                   href="#"
                   className="text-gray-400 hover:text-white transition-colors"
