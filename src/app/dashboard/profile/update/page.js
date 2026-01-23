@@ -1,15 +1,14 @@
-// app/dashboard/profile/page.js
+// app/dashboard/profile/update/page.js
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/AuthProvider";
-import ProfileView from "./components/ProfileView";
-import ProfileHeader from "./components/ProfileHeader";
-import Messages from "./components/Messages";
+import ProfileUpdateForm from "../components/ProfileUpdateForm";
+import Messages from "../components/Messages";
 
-export default function ProfilePage() {
+export default function ProfileUpdatePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -29,16 +28,13 @@ export default function ProfilePage() {
   async function loadProfile() {
     try {
       setLoading(true);
-      setError("");
 
       // Get basic profile
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
-
-      if (profileError) throw profileError;
 
       if (profileData) {
         setProfile(profileData);
@@ -49,15 +45,11 @@ export default function ProfilePage() {
         if (["school", "ngo", "family"].includes(profileData.role))
           table = "organizations";
 
-        const { data: details, error: detailsError } = await supabase
+        const { data: details } = await supabase
           .from(table)
           .select("*")
           .eq("id", user.id)
           .single();
-
-        if (detailsError && detailsError.code !== "PGRST116") {
-          console.warn("Error loading role details:", detailsError);
-        }
 
         setRoleDetails(details || getDefaultRoleDetails(profileData.role));
       }
@@ -139,34 +131,93 @@ export default function ProfilePage() {
     }
   }
 
-  const handleEditClick = () => {
-    router.push("/dashboard/profile/update");
+  const handleSave = async (formData) => {
+    setError("");
+    setSuccess("");
+
+    try {
+      // Update profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      // Update role-specific table
+      let table = "teachers";
+      if (profile.role === "student") table = "students";
+      if (["school", "ngo", "family"].includes(profile.role))
+        table = "organizations";
+
+      const updateData = { ...formData.roleDetails };
+
+      // Process array fields
+      if (profile.role === "teacher") {
+        if (typeof updateData.subject === "string") {
+          updateData.subject = updateData.subject
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s);
+        }
+        if (typeof updateData.grade_levels === "string") {
+          updateData.grade_levels = updateData.grade_levels
+            .split(",")
+            .map((g) => g.trim())
+            .filter((g) => g);
+        }
+        updateData.experience_years = Number(updateData.experience_years) || 0;
+        if (Array.isArray(updateData.hourly_rate_range)) {
+          updateData.hourly_rate_range = updateData.hourly_rate_range.map(
+            (v) => Number(v) || 0,
+          );
+        }
+      }
+
+      if (profile.role === "student") {
+        if (typeof updateData.skills === "string") {
+          updateData.skills = updateData.skills
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s);
+        }
+        updateData.graduation_year =
+          Number(updateData.graduation_year) || new Date().getFullYear() + 1;
+        updateData.gpa = Number(updateData.gpa) || 0;
+      }
+
+      const { error: roleError } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq("id", user.id);
+
+      if (roleError) throw roleError;
+
+      setSuccess("Profile updated successfully!");
+
+      // Redirect back after 2 seconds
+      setTimeout(() => {
+        router.push("/dashboard/profile");
+      }, 2000);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      setError(error.message || "Failed to save profile. Please try again.");
+    }
+  };
+
+  const handleCancel = () => {
+    router.back();
   };
 
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#FF1E00] mb-4"></div>
-        <p className="text-gray-600">Loading your profile...</p>
-      </div>
-    );
-  }
-
-  if (error && !profile) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">
-            Error Loading Profile
-          </h3>
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={loadProfile}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Try Again
-          </button>
-        </div>
+        <p className="text-gray-600">Loading profile for editing...</p>
       </div>
     );
   }
@@ -175,22 +226,22 @@ export default function ProfilePage() {
     <div className="max-w-6xl mx-auto p-4 md:p-6">
       <Messages error={error} success={success} />
 
-      <ProfileHeader profile={profile} roleDetails={roleDetails} />
-
-      <ProfileView profile={profile} roleDetails={roleDetails} user={user} />
-
-      <div className="mt-8 pt-6 border-t border-gray-200">
+      <div className="mb-6">
         <button
-          onClick={handleEditClick}
-          className="px-6 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-medium"
+          onClick={handleCancel}
+          className="text-[#FF1E00] hover:underline flex items-center"
         >
-          Update Profile
+          ← Back to Profile View
         </button>
-        <p className="text-sm text-gray-600 mt-3">
-          Need to change something? Click above to edit your profile
-          information.
-        </p>
       </div>
+
+      <ProfileUpdateForm
+        profile={profile}
+        roleDetails={roleDetails}
+        user={user}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }
