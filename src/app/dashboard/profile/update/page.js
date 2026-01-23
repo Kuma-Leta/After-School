@@ -12,6 +12,7 @@ export default function ProfileUpdatePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState(null);
   const [roleDetails, setRoleDetails] = useState(null);
   const [error, setError] = useState("");
@@ -28,13 +29,16 @@ export default function ProfileUpdatePage() {
   async function loadProfile() {
     try {
       setLoading(true);
+      setError("");
 
       // Get basic profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
+
+      if (profileError) throw profileError;
 
       if (profileData) {
         setProfile(profileData);
@@ -45,11 +49,15 @@ export default function ProfileUpdatePage() {
         if (["school", "ngo", "family"].includes(profileData.role))
           table = "organizations";
 
-        const { data: details } = await supabase
+        const { data: details, error: detailsError } = await supabase
           .from(table)
           .select("*")
           .eq("id", user.id)
           .single();
+
+        if (detailsError && detailsError.code !== "PGRST116") {
+          console.warn("Error loading role details:", detailsError);
+        }
 
         setRoleDetails(details || getDefaultRoleDetails(profileData.role));
       }
@@ -69,62 +77,33 @@ export default function ProfileUpdatePage() {
           experience_years: 0,
           education_level: "",
           bio: "",
-          hourly_rate_range: [0, 0],
-          is_verified: false,
-          rating: 0,
-          total_reviews: 0,
-          grade_levels: [],
-          teaching_methods: [],
         };
       case "student":
         return {
           university: "",
           department: "",
-          graduation_year: new Date().getFullYear() + 1,
           skills: [],
-          availability: {},
-          is_verified: false,
-          rating: 0,
-          gpa: 0,
-          extracurriculars: [],
         };
       case "school":
         return {
           org_name: "",
-          org_type: "school",
           address: "",
           contact_person: "",
           contact_position: "",
-          verified: false,
-          billing_email: "",
-          school_levels: [],
-          student_count: 0,
-          established_year: new Date().getFullYear(),
         };
       case "ngo":
         return {
           org_name: "",
-          org_type: "ngo",
           address: "",
           contact_person: "",
           contact_position: "",
-          verified: false,
-          billing_email: "",
-          focus_areas: [],
-          program_description: "",
         };
       case "family":
         return {
           org_name: "",
-          org_type: "individual",
           address: "",
           contact_person: "",
           contact_position: "",
-          verified: false,
-          billing_email: "",
-          children_count: 0,
-          children_ages: [],
-          preferred_schedule: "",
         };
       default:
         return {};
@@ -134,78 +113,75 @@ export default function ProfileUpdatePage() {
   const handleSave = async (formData) => {
     setError("");
     setSuccess("");
+    setSaving(true);
 
     try {
-      // Update profile
+      console.log("Saving profile data:", formData);
+
+      // Prepare profile update data
+      const profileUpdateData = {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        location: formData.location,
+        date_of_birth: formData.date_of_birth,
+        gender: formData.gender,
+        languages: Array.isArray(formData.languages) ? formData.languages : [],
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update profiles table
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone,
+        .update(profileUpdateData)
+        .eq("id", user.id);
+
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        throw profileError;
+      }
+
+      // Update role-specific table if roleDetails exist
+      if (
+        formData.roleDetails &&
+        Object.keys(formData.roleDetails).length > 0
+      ) {
+        let table = "teachers";
+        if (profile.role === "student") table = "students";
+        if (["school", "ngo", "family"].includes(profile.role))
+          table = "organizations";
+
+        const roleUpdateData = {
+          id: user.id,
+          ...formData.roleDetails,
           updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
+        };
 
-      if (profileError) throw profileError;
+        console.log("Updating role table:", table, roleUpdateData);
 
-      // Update role-specific table
-      let table = "teachers";
-      if (profile.role === "student") table = "students";
-      if (["school", "ngo", "family"].includes(profile.role))
-        table = "organizations";
+        const { error: roleError } = await supabase
+          .from(table)
+          .upsert(roleUpdateData, {
+            onConflict: "id",
+          });
 
-      const updateData = { ...formData.roleDetails };
-
-      // Process array fields
-      if (profile.role === "teacher") {
-        if (typeof updateData.subject === "string") {
-          updateData.subject = updateData.subject
-            .split(",")
-            .map((s) => s.trim())
-            .filter((s) => s);
-        }
-        if (typeof updateData.grade_levels === "string") {
-          updateData.grade_levels = updateData.grade_levels
-            .split(",")
-            .map((g) => g.trim())
-            .filter((g) => g);
-        }
-        updateData.experience_years = Number(updateData.experience_years) || 0;
-        if (Array.isArray(updateData.hourly_rate_range)) {
-          updateData.hourly_rate_range = updateData.hourly_rate_range.map(
-            (v) => Number(v) || 0,
-          );
+        if (roleError) {
+          console.error("Role update error:", roleError);
+          throw roleError;
         }
       }
-
-      if (profile.role === "student") {
-        if (typeof updateData.skills === "string") {
-          updateData.skills = updateData.skills
-            .split(",")
-            .map((s) => s.trim())
-            .filter((s) => s);
-        }
-        updateData.graduation_year =
-          Number(updateData.graduation_year) || new Date().getFullYear() + 1;
-        updateData.gpa = Number(updateData.gpa) || 0;
-      }
-
-      const { error: roleError } = await supabase
-        .from(table)
-        .update(updateData)
-        .eq("id", user.id);
-
-      if (roleError) throw roleError;
 
       setSuccess("Profile updated successfully!");
 
-      // Redirect back after 2 seconds
+      // Refresh and redirect
       setTimeout(() => {
+        router.refresh();
         router.push("/dashboard/profile");
-      }, 2000);
+      }, 1500);
     } catch (error) {
       console.error("Error saving profile:", error);
       setError(error.message || "Failed to save profile. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -230,6 +206,7 @@ export default function ProfileUpdatePage() {
         <button
           onClick={handleCancel}
           className="text-[#FF1E00] hover:underline flex items-center"
+          disabled={saving}
         >
           ← Back to Profile View
         </button>
@@ -241,6 +218,7 @@ export default function ProfileUpdatePage() {
         user={user}
         onSave={handleSave}
         onCancel={handleCancel}
+        saving={saving}
       />
     </div>
   );
