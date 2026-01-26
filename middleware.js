@@ -62,6 +62,7 @@ export async function middleware(request) {
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/callback",
     "/about",
     "/contact",
     "/privacy",
@@ -69,7 +70,7 @@ export async function middleware(request) {
     "/api/auth",
     "/api/webhooks",
   ];
-
+  //https://esgkhewgfdtqisimvhwk.supabase.co/auth/v1/callback
   const isPublicRoute = publicRoutes.some(
     (route) =>
       request.nextUrl.pathname === route ||

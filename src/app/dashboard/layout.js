@@ -552,20 +552,6 @@ export default function DashboardLayout({ children }) {
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200">
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-              <span>Account Status</span>
-              <span className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Active
-              </span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-[#FF1E00] w-3/4"></div>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Profile 75% complete</p>
-          </div>
-
           <button
             onClick={handleSignOut}
             className="flex items-center justify-center w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"

@@ -1,185 +1,147 @@
-// app/dashboard/profile/update/page.js
+// app/dashboard/profile/page.js
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { useAuth } from "@/components/providers/AuthProvider";
 import ProfileUpdateForm from "../components/ProfileUpdateForm";
-import Messages from "../components/Messages";
 
-export default function ProfileUpdatePage() {
+export default function ProfilePage() {
   const router = useRouter();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [roleDetails, setRoleDetails] = useState(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    if (user) {
-      loadProfile();
-    } else {
-      router.push("/login");
+    async function loadData() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          router.push("/login");
+          return;
+        }
+
+        setUser(session.user);
+
+        // Load profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Profile error:", profileError);
+          // If profile doesn't exist, create a basic one
+          if (profileError.code === "PGRST116") {
+            const newProfile = {
+              id: session.user.id,
+              email: session.user.email,
+              full_name: "",
+              role: "teacher", // Default role
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setProfile(newProfile);
+            setRoleDetails({});
+          } else {
+            throw profileError;
+          }
+        } else {
+          setProfile(profileData);
+
+          // Load role-specific details
+          const roleTable = getRoleTable(profileData.role);
+          if (roleTable) {
+            const { data: roleData, error: roleError } = await supabase
+              .from(roleTable)
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
+
+            if (roleError && roleError.code !== "PGRST116") {
+              console.error("Role details error:", roleError);
+            } else {
+              setRoleDetails(roleData || {});
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Load error:", err);
+        setError("Failed to load profile data");
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [user, router]);
 
-  async function loadProfile() {
+    loadData();
+  }, [router]);
+
+  const getRoleTable = (role) => {
+    switch (role) {
+      case "teacher":
+        return "teacher_profiles";
+      case "student":
+        return "student_profiles";
+      case "school":
+        return "school_profiles";
+      case "ngo":
+        return "ngo_profiles";
+      case "family":
+        return "family_profiles";
+      case "admin":
+        return "admin_profiles";
+      default:
+        return null;
+    }
+  };
+
+  const handleSave = async (data) => {
+    setSaving(true);
+    setError("");
+
     try {
-      setLoading(true);
-      setError("");
+      const { roleDetails, ...profileData } = data;
 
-      // Get basic profile
-      const { data: profileData, error: profileError } = await supabase
+      // Update main profile
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        ...profileData,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (profileError) throw profileError;
+
+      // Update role-specific profile
+      const roleTable = getRoleTable(profileData.role);
+      if (roleTable && roleDetails) {
+        const { error: roleError } = await supabase.from(roleTable).upsert({
+          ...roleDetails,
+          id: user.id,
+          updated_at: new Date().toISOString(),
+        });
+
+        if (roleError) throw roleError;
+      }
+
+      // Refresh data
+      const { data: updatedProfile } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
 
-      if (profileError) throw profileError;
+      setProfile(updatedProfile);
+      setRoleDetails(roleDetails);
 
-      if (profileData) {
-        setProfile(profileData);
-
-        // Get role-specific details
-        let table = "teachers";
-        if (profileData.role === "student") table = "students";
-        if (["school", "ngo", "family"].includes(profileData.role))
-          table = "organizations";
-
-        const { data: details, error: detailsError } = await supabase
-          .from(table)
-          .select("*")
-          .eq("id", user.id)
-          .single();
-
-        if (detailsError && detailsError.code !== "PGRST116") {
-          console.warn("Error loading role details:", detailsError);
-        }
-
-        setRoleDetails(details || getDefaultRoleDetails(profileData.role));
-      }
-    } catch (error) {
-      console.error("Error loading profile:", error);
-      setError("Failed to load profile. Please refresh the page.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function getDefaultRoleDetails(role) {
-    switch (role) {
-      case "teacher":
-        return {
-          subject: [],
-          experience_years: 0,
-          education_level: "",
-          bio: "",
-        };
-      case "student":
-        return {
-          university: "",
-          department: "",
-          skills: [],
-        };
-      case "school":
-        return {
-          org_name: "",
-          address: "",
-          contact_person: "",
-          contact_position: "",
-        };
-      case "ngo":
-        return {
-          org_name: "",
-          address: "",
-          contact_person: "",
-          contact_position: "",
-        };
-      case "family":
-        return {
-          org_name: "",
-          address: "",
-          contact_person: "",
-          contact_position: "",
-        };
-      default:
-        return {};
-    }
-  }
-
-  const handleSave = async (formData) => {
-    setError("");
-    setSuccess("");
-    setSaving(true);
-
-    try {
-      console.log("Saving profile data:", formData);
-
-      // Prepare profile update data
-      const profileUpdateData = {
-        full_name: formData.full_name,
-        phone: formData.phone,
-        location: formData.location,
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender,
-        languages: Array.isArray(formData.languages) ? formData.languages : [],
-        updated_at: new Date().toISOString(),
-      };
-
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update(profileUpdateData)
-        .eq("id", user.id);
-
-      if (profileError) {
-        console.error("Profile update error:", profileError);
-        throw profileError;
-      }
-
-      // Update role-specific table if roleDetails exist
-      if (
-        formData.roleDetails &&
-        Object.keys(formData.roleDetails).length > 0
-      ) {
-        let table = "teachers";
-        if (profile.role === "student") table = "students";
-        if (["school", "ngo", "family"].includes(profile.role))
-          table = "organizations";
-
-        const roleUpdateData = {
-          id: user.id,
-          ...formData.roleDetails,
-          updated_at: new Date().toISOString(),
-        };
-
-        console.log("Updating role table:", table, roleUpdateData);
-
-        const { error: roleError } = await supabase
-          .from(table)
-          .upsert(roleUpdateData, {
-            onConflict: "id",
-          });
-
-        if (roleError) {
-          console.error("Role update error:", roleError);
-          throw roleError;
-        }
-      }
-
-      setSuccess("Profile updated successfully!");
-
-      // Refresh and redirect
-      setTimeout(() => {
-        router.refresh();
-        router.push("/dashboard/profile");
-      }, 1500);
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      setError(error.message || "Failed to save profile. Please try again.");
+      alert("Profile updated successfully!");
+    } catch (err) {
+      console.error("Save error:", err);
+      setError(err.message || "Failed to save profile");
     } finally {
       setSaving(false);
     }
@@ -191,35 +153,48 @@ export default function ProfileUpdatePage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#FF1E00] mb-4"></div>
-        <p className="text-gray-600">Loading profile for editing...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+            <div className="h-64 bg-gray-100 rounded-lg"></div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
-      <Messages error={error} success={success} />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-4 md:p-8">
+      <div className="max-w-5xl mx-auto">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <svg
+                className="w-5 h-5 text-red-500 mr-2"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-red-700">{error}</span>
+            </div>
+          </div>
+        )}
 
-      <div className="mb-6">
-        <button
-          onClick={handleCancel}
-          className="text-[#FF1E00] hover:underline flex items-center"
-          disabled={saving}
-        >
-          ← Back to Profile View
-        </button>
+        <ProfileUpdateForm
+          profile={profile}
+          roleDetails={roleDetails}
+          user={user}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          saving={saving}
+        />
       </div>
-
-      <ProfileUpdateForm
-        profile={profile}
-        roleDetails={roleDetails}
-        user={user}
-        onSave={handleSave}
-        onCancel={handleCancel}
-        saving={saving}
-      />
     </div>
   );
 }
