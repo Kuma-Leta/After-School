@@ -81,7 +81,6 @@ export default function ProfilePage() {
 
     loadData();
   }, [router]);
-
   const getRoleTable = (role) => {
     switch (role) {
       case "teacher":
