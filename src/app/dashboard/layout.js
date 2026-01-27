@@ -203,7 +203,7 @@ export default function DashboardLayout({ children }) {
           description: "Create new job",
         },
         {
-          href: "/dashboard/my-jobs",
+          href: "/dashboard/jobs",
           label: "My Jobs",
           icon: "📋",
           description: "Manage job posts",

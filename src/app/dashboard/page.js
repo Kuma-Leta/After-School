@@ -77,7 +77,7 @@ export default function DashboardPage() {
       const { count: postedJobs } = await supabase
         .from("jobs")
         .select("*", { count: "exact", head: true })
-        .eq("employer_id", user.id);
+        .eq("organization_id", user.id);
 
       const { count: applicationsCount } = await supabase
         .from("applications")
@@ -418,7 +418,7 @@ export default function DashboardPage() {
               {isEmployer && (
                 <>
                   <Link
-                    href="/dashboard/post-job"
+                    href="/dashboard/jobs"
                     className="p-4 border border-gray-200 rounded-lg hover:border-[#FF1E00] hover:bg-[#FF1E00]/5 transition-colors group"
                   >
                     <div className="flex items-center space-x-3">
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                   </Link>
 
                   <Link
-                    href="/dashboard/my-jobs"
+                    href="/dashboard/jobs"
                     className="p-4 border border-gray-200 rounded-lg hover:border-[#FF1E00] hover:bg-[#FF1E00]/5 transition-colors group"
                   >
                     <div className="flex items-center space-x-3">
