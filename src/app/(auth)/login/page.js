@@ -116,7 +116,7 @@ export default function LoginPage() {
       }
 
       // Get redirect URL
-      const redirectTo = searchParams.get("redirect") || "/dashboard";
+      const redirectTo = searchParams.get("redirect") || "/jobs";
       console.log("Redirecting to:", redirectTo);
 
       // Force hard navigation to ensure middleware runs
