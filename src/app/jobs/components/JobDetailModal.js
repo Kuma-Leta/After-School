@@ -1,26 +1,79 @@
-// app/components/JobDetailModal.js
+// app/components/JobDetailModal.js - Updated Apply button section
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
 
-export default function JobDetailModal({ job, onClose, onApply }) {
-  // Prevent scrolling when modal is open
+// Inside the JobDetailModal component, update the Apply button logic:
+export default function JobDetailModal({ job, onClose }) {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [hasApplied, setHasApplied] = useState(false);
+
   useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, []);
+    checkUserAndApplication();
+  }, [job.id]);
 
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
+  const checkUserAndApplication = async () => {
+    try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      setUser(authUser);
+
+      if (authUser) {
+        const { data: existingApplication } = await supabase
+          .from("applications")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("applicant_id", authUser.id)
+          .single();
+
+        setHasApplied(!!existingApplication);
+      }
+    } catch (error) {
+      console.error("Error checking application:", error);
     }
   };
 
-  const daysLeft = Math.ceil(
-    (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
-  );
+  const handleApply = async () => {
+    if (!user) {
+      router.push(`/login?redirect=/jobs/${job.id}/apply`);
+      return;
+    }
+
+    if (hasApplied) {
+      if (
+        confirm(
+          "You have already applied to this job. Would you like to view your application?",
+        )
+      ) {
+        router.push("/dashboard/applications");
+        onClose();
+      }
+      return;
+    }
+
+    // Check if job is still active and not expired
+    const daysLeft = Math.ceil(
+      (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
+    );
+    if (!job.is_active || daysLeft <= 0) {
+      alert("This job is no longer accepting applications.");
+      return;
+    }
+
+    router.push(`/jobs/${job.id}/apply`);
+    onClose();
+  };
+
+  const daysLeft = job?.application_deadline
+    ? Math.ceil(
+        (new Date(job.application_deadline) - new Date()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : 0;
 
   return (
     <div
@@ -284,15 +337,28 @@ export default function JobDetailModal({ job, onClose, onApply }) {
 
               {/* Apply Button */}
               <button
-                onClick={onApply}
-                className="w-full py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-bold text-lg shadow-lg"
+                onClick={handleApply}
+                disabled={daysLeft <= 0 || !job.is_active || hasApplied}
+                className={`w-full py-3 text-white rounded-lg font-bold text-lg shadow-lg ${
+                  daysLeft <= 0 || !job.is_active
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : hasApplied
+                      ? "bg-yellow-500 hover:bg-yellow-600"
+                      : "bg-[#FF1E00] hover:bg-[#E01B00]"
+                }`}
               >
-                Apply for this Job
+                {hasApplied
+                  ? "View Application"
+                  : daysLeft <= 0 || !job.is_active
+                    ? "Closed for Applications"
+                    : "Apply for this Job"}
               </button>
               <div className="text-center mt-4 text-sm text-gray-600">
-                {daysLeft > 0
-                  ? `Apply before ${new Date(job.application_deadline).toLocaleDateString()}`
-                  : "Application deadline has passed"}
+                {hasApplied
+                  ? "You've already applied to this position"
+                  : daysLeft > 0
+                    ? `Apply before ${new Date(job.application_deadline).toLocaleDateString()}`
+                    : "Application deadline has passed"}
               </div>
             </div>
           </div>

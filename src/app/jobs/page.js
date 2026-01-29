@@ -501,7 +501,6 @@ export default function HomePage() {
                     key={job.id}
                     job={job}
                     onClick={() => handleJobClick(job)}
-                    onApply={() => handleApply(job)}
                   />
                 ))}
               </div>

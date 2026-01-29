@@ -1,5 +1,11 @@
 // app/components/JobCard.js
-export default function JobCard({ job, onClick, onApply }) {
+"use client";
+
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+
+export default function JobCard({ job, onClick }) {
+  const router = useRouter();
   const daysLeft = Math.ceil(
     (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
   );
@@ -15,6 +21,52 @@ export default function JobCard({ job, onClick, onApply }) {
     if (job.duration.toLowerCase().includes("year")) return "📅";
     if (job.duration.toLowerCase().includes("contract")) return "📝";
     return "📅";
+  };
+
+  const handleApply = async () => {
+    // Check if user is logged in
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Redirect to login with return URL
+        router.push(`/login?redirect=/jobs/${job.id}/apply`);
+        return;
+      }
+
+      // Check if job is still active and not expired
+      if (!job.is_active || daysLeft <= 0) {
+        alert("This job is no longer accepting applications.");
+        return;
+      }
+
+      // Check if user has already applied
+      const { data: existingApplication } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("job_id", job.id)
+        .eq("applicant_id", user.id)
+        .single();
+
+      if (existingApplication) {
+        if (
+          confirm(
+            "You have already applied to this job. Would you like to view your application?",
+          )
+        ) {
+          router.push("/dashboard/applications");
+        }
+        return;
+      }
+
+      // Redirect to application form
+      router.push(`/jobs/${job.id}/apply`);
+    } catch (error) {
+      console.error("Error checking application status:", error);
+      router.push(`/jobs/${job.id}/apply`);
+    }
   };
 
   return (
@@ -160,7 +212,7 @@ export default function JobCard({ job, onClick, onApply }) {
         {/* Footer */}
         <div className="flex justify-between items-center">
           <div
-            className={`px-3 py-1 rounded-full text-sm font-medium ${daysLeft <= 3 ? "bg-red-100 text-red-800" : daysLeft <= 7 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}
+            className={`px-3 py-1 rounded-full text-sm font-medium ${daysLeft <= 0 ? "bg-red-100 text-red-800" : daysLeft <= 3 ? "bg-red-100 text-red-800" : daysLeft <= 7 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}
           >
             ⏳{" "}
             {daysLeft > 0
@@ -175,10 +227,15 @@ export default function JobCard({ job, onClick, onApply }) {
               View Details
             </button>
             <button
-              onClick={onApply}
-              className="px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-medium"
+              onClick={handleApply}
+              disabled={daysLeft <= 0 || !job.is_active}
+              className={`px-4 py-2 font-medium rounded-lg ${
+                daysLeft <= 0 || !job.is_active
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
+              }`}
             >
-              Apply Now
+              {daysLeft <= 0 || !job.is_active ? "Closed" : "Apply Now"}
             </button>
           </div>
         </div>
