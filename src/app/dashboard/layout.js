@@ -131,7 +131,7 @@ export default function DashboardLayout({ children }) {
       return [
         ...common,
         {
-          href: "/dashboard/jobs",
+          href: "/jobs",
           label: "Find Jobs",
           icon: "🔍",
           description: "Browse opportunities",
@@ -197,7 +197,7 @@ export default function DashboardLayout({ children }) {
       return [
         ...common,
         {
-          href: "/dashboard/post-job",
+          href: "/dashboard/jobs",
           label: "Post a Job",
           icon: "➕",
           description: "Create new job",
