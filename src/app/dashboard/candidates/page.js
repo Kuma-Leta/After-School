@@ -10,7 +10,7 @@ export default function CandidatesPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("jobs"); // 'jobs', 'applicants', 'detail'
+  const [activeTab, setActiveTab] = useState("jobs");
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [applicants, setApplicants] = useState([]);
@@ -26,12 +26,10 @@ export default function CandidatesPage() {
     }
   }, [user, authLoading, router]);
 
-  // Load all jobs posted by the employer that have applications
   async function loadEmployerJobs() {
     try {
       setLoading(true);
 
-      // First, get all jobs posted by this employer
       const { data: employerJobs, error: jobsError } = await supabase
         .from("jobs")
         .select(
@@ -54,7 +52,6 @@ export default function CandidatesPage() {
 
       if (jobsError) throw jobsError;
 
-      // For each job, check if it has applications
       const jobsWithApplications = [];
 
       for (const job of employerJobs) {
@@ -81,7 +78,6 @@ export default function CandidatesPage() {
 
       setJobs(jobsWithApplications);
 
-      // If there's a selected job, reload its applicants
       if (selectedJob) {
         const currentJob = jobsWithApplications.find(
           (j) => j.id === selectedJob.id,
@@ -102,7 +98,6 @@ export default function CandidatesPage() {
     }
   }
 
-  // Load applicants for a specific job
   async function loadJobApplicants(job) {
     try {
       setSelectedJob(job);
@@ -121,7 +116,6 @@ export default function CandidatesPage() {
         return;
       }
 
-      // Get applicant profiles
       const applicantIds = applications
         .map((app) => app.applicant_id)
         .filter(Boolean);
@@ -145,13 +139,11 @@ export default function CandidatesPage() {
 
       if (profileError) throw profileError;
 
-      // Combine application data with profile data
       const combinedApplicants = applications.map((application) => {
         const profile =
           applicantProfiles?.find((p) => p.id === application.applicant_id) ||
           {};
 
-        // Calculate age from date_of_birth
         let age = null;
         if (profile.date_of_birth) {
           const birthDate = new Date(profile.date_of_birth);
@@ -166,7 +158,6 @@ export default function CandidatesPage() {
           }
         }
 
-        // Format languages
         const languages = profile.languages
           ? Array.isArray(profile.languages)
             ? profile.languages.join(", ")
@@ -193,12 +184,10 @@ export default function CandidatesPage() {
     }
   }
 
-  // Load application details and open modal
   async function loadApplicationDetail(applicant) {
     try {
       setLoading(true);
 
-      // Get the full application details
       const { data: application, error: appError } = await supabase
         .from("applications")
         .select("*")
@@ -207,7 +196,6 @@ export default function CandidatesPage() {
 
       if (appError) throw appError;
 
-      // Get job details
       const { data: job, error: jobError } = await supabase
         .from("jobs")
         .select("*")
@@ -231,7 +219,6 @@ export default function CandidatesPage() {
     }
   }
 
-  // Update application status
   const updateApplicationStatus = async (applicationId, newStatus) => {
     try {
       const updateData = {
@@ -252,14 +239,12 @@ export default function CandidatesPage() {
 
       if (error) throw error;
 
-      // Refresh data
       if (selectedJob) {
         await loadJobApplicants(selectedJob);
       } else {
         await loadEmployerJobs();
       }
 
-      // If modal is open, refresh application detail
       if (isModalOpen && applicationDetail) {
         const { data: updatedApp } = await supabase
           .from("applications")
@@ -280,21 +265,18 @@ export default function CandidatesPage() {
     }
   };
 
-  // Close modal and go back to applicants list
   const closeModal = () => {
     setIsModalOpen(false);
     setApplicationDetail(null);
     setSelectedApplicant(null);
   };
 
-  // Go back to jobs list
   const goBackToJobs = () => {
     setSelectedJob(null);
     setApplicants([]);
     setActiveTab("jobs");
   };
 
-  // Go back to applicants list
   const goBackToApplicants = () => {
     setActiveTab("applicants");
     setApplicationDetail(null);
@@ -328,7 +310,7 @@ export default function CandidatesPage() {
   if (authLoading || loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF1E00] mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
         <p className="text-gray-600">Loading candidates...</p>
       </div>
     );
@@ -340,7 +322,7 @@ export default function CandidatesPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#1F1F1F]">
+            <h1 className="text-3xl font-bold text-secondary">
               {activeTab === "jobs" && "Jobs with Applications"}
               {activeTab === "applicants" &&
                 `Applicants for "${selectedJob?.title}"`}
@@ -362,7 +344,7 @@ export default function CandidatesPage() {
                   ? goBackToJobs
                   : undefined
               }
-              className={`${activeTab === "applicants" || isModalOpen ? "text-[#FF1E00] hover:text-[#E01B00] cursor-pointer" : "text-gray-400 cursor-default"}`}
+              className={`${activeTab === "applicants" || isModalOpen ? "text-primary hover:text-primary/90 cursor-pointer" : "text-gray-400 cursor-default"}`}
             >
               Jobs
             </button>
@@ -371,7 +353,7 @@ export default function CandidatesPage() {
                 <span className="text-gray-400">/</span>
                 <button
                   onClick={isModalOpen ? goBackToApplicants : undefined}
-                  className={`${isModalOpen ? "text-[#FF1E00] hover:text-[#E01B00] cursor-pointer" : "text-gray-600"}`}
+                  className={`${isModalOpen ? "text-primary hover:text-primary/90 cursor-pointer" : "text-gray-600"}`}
                 >
                   {selectedJob?.title?.slice(0, 20)}...
                 </button>
@@ -399,24 +381,24 @@ export default function CandidatesPage() {
                 jobs.map((job) => (
                   <div
                     key={job.id}
-                    className="border border-gray-200 rounded-xl p-6 hover:border-[#FF1E00] hover:shadow-lg transition-all cursor-pointer"
+                    className="border border-gray-200 rounded-xl p-6 hover:border-primary hover:shadow-lg transition-all cursor-pointer bg-white"
                     onClick={() => loadJobApplicants(job)}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                      <h3 className="text-lg font-semibold text-secondary line-clamp-2">
                         {job.title}
                       </h3>
                       {job.is_filled && (
-                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full font-medium">
                           Filled
                         </span>
                       )}
                     </div>
 
                     <div className="space-y-3 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-700">
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4 mr-2 text-gray-500"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -434,11 +416,13 @@ export default function CandidatesPage() {
                             d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                           />
                         </svg>
-                        <span>{job.location || "Remote"}</span>
+                        <span className="font-medium">
+                          {job.location || "Remote"}
+                        </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-700">
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4 mr-2 text-gray-500"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -450,11 +434,13 @@ export default function CandidatesPage() {
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <span>{job.schedule || "Flexible schedule"}</span>
+                        <span className="font-medium">
+                          {job.schedule || "Flexible schedule"}
+                        </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-700">
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4 mr-2 text-gray-500"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -466,51 +452,53 @@ export default function CandidatesPage() {
                             d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <span>{job.salary_range || "Salary negotiable"}</span>
+                        <span className="font-medium">
+                          {job.salary_range || "Salary negotiable"}
+                        </span>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-gray-100">
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="text-center p-2 bg-gray-50 rounded-lg">
-                          <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="text-2xl font-bold text-secondary">
                             {job.applications_count || 0}
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-gray-700 font-medium">
                             Total Applicants
                           </div>
                         </div>
-                        <div className="text-center p-2 bg-yellow-50 rounded-lg">
-                          <div className="text-2xl font-bold text-yellow-700">
+                        <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <div className="text-2xl font-bold text-yellow-800">
                             {job.pending_count || 0}
                           </div>
-                          <div className="text-xs text-yellow-600">
+                          <div className="text-xs text-yellow-800 font-medium">
                             Pending Review
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <button className="w-full mt-4 px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors text-sm font-medium">
+                    <button className="w-full mt-4 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm">
                       View Applicants
                     </button>
                   </div>
                 ))
               ) : (
-                <div className="md:col-span-2 lg:col-span-3 text-center py-16">
-                  <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="md:col-span-2 lg:col-span-3 text-center py-16 bg-gray-50 rounded-xl">
+                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-gray-200">
                     <span className="text-gray-400 text-4xl">📭</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  <h3 className="text-xl font-semibold text-secondary mb-3">
                     No Applications Yet
                   </h3>
-                  <p className="text-gray-600 max-w-md mx-auto mb-8">
-                    Your posted jobs don&apos;t have any applications yet. Share
-                    your job posts to attract candidates.
+                  <p className="text-gray-700 max-w-md mx-auto mb-8">
+                    Your posted jobs don't have any applications yet. Share your
+                    job posts to attract candidates.
                   </p>
                   <button
                     onClick={() => router.push("/dashboard/jobs/post")}
-                    className="px-6 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium"
+                    className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold shadow-md"
                   >
                     Create New Job Post
                   </button>
@@ -527,11 +515,11 @@ export default function CandidatesPage() {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  <h2 className="text-xl font-bold text-secondary mb-2">
                     {selectedJob?.title}
                   </h2>
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                    <span className="flex items-center">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="flex items-center bg-white px-3 py-1 rounded-full border border-blue-200 text-blue-800 font-medium">
                       <svg
                         className="w-4 h-4 mr-1"
                         fill="none"
@@ -547,7 +535,7 @@ export default function CandidatesPage() {
                       </svg>
                       {selectedJob?.location || "Remote"}
                     </span>
-                    <span className="flex items-center">
+                    <span className="flex items-center bg-white px-3 py-1 rounded-full border border-blue-200 text-blue-800 font-medium">
                       <svg
                         className="w-4 h-4 mr-1"
                         fill="none"
@@ -563,7 +551,7 @@ export default function CandidatesPage() {
                       </svg>
                       {selectedJob?.schedule || "Flexible"}
                     </span>
-                    <span className="flex items-center">
+                    <span className="flex items-center bg-white px-3 py-1 rounded-full border border-blue-200 text-blue-800 font-medium">
                       <svg
                         className="w-4 h-4 mr-1"
                         fill="none"
@@ -582,21 +570,25 @@ export default function CandidatesPage() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="text-center px-4 py-2 bg-white rounded-lg border border-gray-200">
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-center px-4 py-3 bg-white rounded-lg border border-gray-300 shadow-sm">
+                    <div className="text-2xl font-bold text-secondary">
                       {applicants.length}
                     </div>
-                    <div className="text-xs text-gray-600">Total</div>
+                    <div className="text-xs text-gray-700 font-semibold">
+                      Total
+                    </div>
                   </div>
-                  <div className="text-center px-4 py-2 bg-white rounded-lg border border-yellow-200">
-                    <div className="text-2xl font-bold text-yellow-700">
+                  <div className="text-center px-4 py-3 bg-white rounded-lg border border-yellow-300 shadow-sm">
+                    <div className="text-2xl font-bold text-yellow-800">
                       {
                         applicants.filter(
                           (a) => a.application.status === "pending",
                         ).length
                       }
                     </div>
-                    <div className="text-xs text-yellow-600">Pending</div>
+                    <div className="text-xs text-yellow-800 font-semibold">
+                      Pending
+                    </div>
                   </div>
                 </div>
               </div>
@@ -608,26 +600,26 @@ export default function CandidatesPage() {
                 applicants.map((applicant, index) => (
                   <div
                     key={applicant.application.id}
-                    className="border border-gray-200 rounded-xl p-6 hover:border-[#FF1E00] hover:shadow-lg transition-all cursor-pointer"
+                    className="border border-gray-200 rounded-xl p-6 hover:border-primary hover:shadow-lg transition-all cursor-pointer bg-white"
                     onClick={() => loadApplicationDetail(applicant)}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-lg mr-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-lg mr-3 border-2 border-blue-200">
                           {applicant.profile.full_name?.charAt(0) || "A"}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">
+                          <h3 className="font-semibold text-secondary">
                             {applicant.profile.full_name ||
                               "Anonymous Applicant"}
                           </h3>
-                          <p className="text-sm text-gray-600 capitalize">
+                          <p className="text-sm text-gray-700 font-medium capitalize">
                             {applicant.profile.role || "Applicant"}
                           </p>
                         </div>
                       </div>
                       <span
-                        className={`text-xs px-3 py-1 rounded-full ${getStatusColor(applicant.application.status)}`}
+                        className={`text-xs px-3 py-1.5 rounded-full font-semibold ${getStatusColor(applicant.application.status)}`}
                       >
                         {applicant.application.status.charAt(0).toUpperCase() +
                           applicant.application.status.slice(1)}
@@ -635,9 +627,9 @@ export default function CandidatesPage() {
                     </div>
 
                     <div className="space-y-3 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-800">
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4 mr-2 text-gray-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -649,13 +641,13 @@ export default function CandidatesPage() {
                             d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                           />
                         </svg>
-                        <span>
+                        <span className="font-medium">
                           {applicant.profile.phone || "Phone not provided"}
                         </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm text-gray-800">
                         <svg
-                          className="w-4 h-4 mr-2"
+                          className="w-4 h-4 mr-2 text-gray-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -667,15 +659,15 @@ export default function CandidatesPage() {
                             d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
                           />
                         </svg>
-                        <span>
+                        <span className="font-medium">
                           {applicant.profile.location ||
                             "Location not specified"}
                         </span>
                       </div>
                       {applicant.profile.age && (
-                        <div className="flex items-center text-sm text-gray-600">
+                        <div className="flex items-center text-sm text-gray-800">
                           <svg
-                            className="w-4 h-4 mr-2"
+                            className="w-4 h-4 mr-2 text-gray-600"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -687,20 +679,22 @@ export default function CandidatesPage() {
                               d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.701 2.701 0 00-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h18zm-3-9v-2a2 2 0 00-2-2H8a2 2 0 00-2 2v2h12z"
                             />
                           </svg>
-                          <span>{applicant.profile.age} years old</span>
+                          <span className="font-medium">
+                            {applicant.profile.age} years old
+                          </span>
                         </div>
                       )}
                     </div>
 
                     {applicant.profile.bio && (
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                      <p className="text-sm text-gray-700 mb-4 line-clamp-2 font-medium">
                         {applicant.profile.bio}
                       </p>
                     )}
 
-                    <div className="pt-4 border-t border-gray-100">
-                      <div className="flex justify-between text-sm">
-                        <div className="text-gray-600">
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex justify-between items-center text-sm">
+                        <div className="text-gray-700 font-medium">
                           Applied:{" "}
                           {formatDate(applicant.application.submitted_at)}
                         </div>
@@ -709,38 +703,53 @@ export default function CandidatesPage() {
                             e.stopPropagation();
                             loadApplicationDetail(applicant);
                           }}
-                          className="text-[#FF1E00] hover:text-[#E01B00] font-medium"
+                          className="text-primary hover:text-primary/80 font-semibold flex items-center gap-1"
                         >
-                          View Details →
+                          View Details
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
                         </button>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="md:col-span-2 lg:col-span-3 text-center py-16">
-                  <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="md:col-span-2 lg:col-span-3 text-center py-16 bg-gray-50 rounded-xl">
+                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-gray-200">
                     <span className="text-gray-400 text-4xl">👤</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  <h3 className="text-xl font-semibold text-secondary mb-3">
                     No Applicants Found
                   </h3>
-                  <p className="text-gray-600 max-w-md mx-auto mb-8">
-                    This job doesn&apos;t have any applicants yet. Consider
-                    promoting your job post.
+                  <p className="text-gray-700 max-w-md mx-auto mb-8 font-medium">
+                    This job doesn't have any applicants yet. Consider promoting
+                    your job post.
                   </p>
-                  <button
-                    onClick={goBackToJobs}
-                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium mr-4"
-                  >
-                    Back to Jobs
-                  </button>
-                  <button
-                    onClick={() => router.push(`/jobs/${selectedJob?.id}`)}
-                    className="px-6 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium"
-                  >
-                    View Job Post
-                  </button>
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={goBackToJobs}
+                      className="px-6 py-3 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold border border-gray-300 shadow-sm"
+                    >
+                      Back to Jobs
+                    </button>
+                    <button
+                      onClick={() => router.push(`/jobs/${selectedJob?.id}`)}
+                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold shadow-md"
+                    >
+                      View Job Post
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -751,30 +760,28 @@ export default function CandidatesPage() {
       {/* Application Detail Modal */}
       {isModalOpen && applicationDetail && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+            className="fixed inset-0 bg-black bg-opacity-60 transition-opacity"
             onClick={closeModal}
           />
 
-          {/* Modal Content */}
           <div className="flex items-center justify-center min-h-screen p-4">
-            <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-300">
               {/* Modal Header */}
-              <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
+              <div className="sticky top-0 z-10 bg-white border-b border-gray-300 px-6 py-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">
+                    <h2 className="text-xl font-bold text-secondary">
                       Application Details
                     </h2>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-700 font-medium">
                       {applicationDetail.applicant.full_name} •{" "}
                       {selectedJob?.title}
                     </p>
                   </div>
                   <div className="flex items-center space-x-3">
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(applicationDetail.application.status)}`}
+                      className={`px-3 py-1.5 rounded-full text-sm font-semibold ${getStatusColor(applicationDetail.application.status)}`}
                     >
                       {applicationDetail.application.status
                         .charAt(0)
@@ -783,7 +790,7 @@ export default function CandidatesPage() {
                     </span>
                     <button
                       onClick={closeModal}
-                      className="text-gray-400 hover:text-gray-500"
+                      className="text-gray-500 hover:text-secondary p-1 rounded-full hover:bg-gray-100"
                     >
                       <svg
                         className="w-6 h-6"
@@ -806,44 +813,48 @@ export default function CandidatesPage() {
               {/* Modal Body */}
               <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-120px)]">
                 {/* Applicant Profile Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-200">
                   <div className="flex flex-col md:flex-row md:items-center gap-6">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-blue-800 font-bold text-2xl">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-blue-900 font-bold text-2xl border-4 border-white shadow-sm">
                       {applicationDetail.applicant.full_name?.charAt(0) || "A"}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-xl font-bold text-secondary mb-2">
                         {applicationDetail.applicant.full_name ||
                           "Anonymous Applicant"}
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <div className="text-xs text-gray-600 mb-1">Role</div>
-                          <div className="font-medium capitalize">
+                          <div className="text-xs text-gray-700 mb-1 font-semibold">
+                            Role
+                          </div>
+                          <div className="font-semibold text-secondary capitalize">
                             {applicationDetail.applicant.role || "Applicant"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600 mb-1">
+                          <div className="text-xs text-gray-700 mb-1 font-semibold">
                             Location
                           </div>
-                          <div className="font-medium">
+                          <div className="font-semibold text-secondary">
                             {applicationDetail.applicant.location ||
                               "Not specified"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600 mb-1">
+                          <div className="text-xs text-gray-700 mb-1 font-semibold">
                             Phone
                           </div>
-                          <div className="font-medium">
+                          <div className="font-semibold text-secondary">
                             {applicationDetail.applicant.phone ||
                               "Not provided"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600 mb-1">Age</div>
-                          <div className="font-medium">
+                          <div className="text-xs text-gray-700 mb-1 font-semibold">
+                            Age
+                          </div>
+                          <div className="font-semibold text-secondary">
                             {applicationDetail.applicant.age
                               ? `${applicationDetail.applicant.age} years`
                               : "Not specified"}
@@ -852,15 +863,17 @@ export default function CandidatesPage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <a
-                        href={`tel:${applicationDetail.applicant.phone}`}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-center font-medium"
-                      >
-                        Call Candidate
-                      </a>
+                      {applicationDetail.applicant.phone && (
+                        <a
+                          href={`tel:${applicationDetail.applicant.phone}`}
+                          className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center font-semibold shadow-sm"
+                        >
+                          Call Candidate
+                        </a>
+                      )}
                       <button
                         onClick={goBackToApplicants}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                        className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold shadow-sm"
                       >
                         Back to List
                       </button>
@@ -874,9 +887,9 @@ export default function CandidatesPage() {
                   <div className="space-y-6">
                     {/* Cover Letter */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <h3 className="text-lg font-semibold text-secondary mb-3 flex items-center">
                         <svg
-                          className="w-5 h-5 mr-2 text-[#FF1E00]"
+                          className="w-5 h-5 mr-2 text-primary"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -890,8 +903,8 @@ export default function CandidatesPage() {
                         </svg>
                         Cover Letter
                       </h3>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <p className="text-gray-700 whitespace-pre-line">
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-300">
+                        <p className="text-gray-800 whitespace-pre-line font-medium">
                           {applicationDetail.application.cover_letter ||
                             "No cover letter provided."}
                         </p>
@@ -900,40 +913,40 @@ export default function CandidatesPage() {
 
                     {/* Application Info */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h3 className="text-lg font-semibold text-secondary mb-3">
                         Application Information
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <div className="text-sm text-gray-600 mb-1">
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                          <div className="text-sm text-gray-700 mb-1 font-semibold">
                             Applied Date
                           </div>
-                          <div className="font-medium">
+                          <div className="font-semibold text-secondary">
                             {formatDate(
                               applicationDetail.application.submitted_at,
                             )}
                           </div>
                         </div>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <div className="text-sm text-gray-600 mb-1">
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                          <div className="text-sm text-gray-700 mb-1 font-semibold">
                             Last Updated
                           </div>
-                          <div className="font-medium">
+                          <div className="font-semibold text-secondary">
                             {formatDate(
                               applicationDetail.application.updated_at,
                             ) || "Not updated"}
                           </div>
                         </div>
                         {applicationDetail.application.resume_url && (
-                          <div className="col-span-2 bg-gray-50 p-4 rounded-lg">
-                            <div className="text-sm text-gray-600 mb-1">
+                          <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-300">
+                            <div className="text-sm text-gray-700 mb-1 font-semibold">
                               Resume
                             </div>
                             <a
                               href={applicationDetail.application.resume_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center text-[#FF1E00] hover:text-[#E01B00] font-medium"
+                              className="inline-flex items-center text-primary hover:text-primary/80 font-semibold"
                             >
                               <svg
                                 className="w-4 h-4 mr-2"
@@ -957,7 +970,7 @@ export default function CandidatesPage() {
 
                     {/* Status Update Actions */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h3 className="text-lg font-semibold text-secondary mb-3">
                         Update Application Status
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -978,16 +991,16 @@ export default function CandidatesPage() {
                                     status,
                                   )
                                 }
-                                className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold shadow-sm ${
                                   status === "hired"
-                                    ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                    ? "bg-green-600 text-white hover:bg-green-700"
                                     : status === "rejected"
-                                      ? "bg-red-100 text-red-800 hover:bg-red-200"
+                                      ? "bg-red-600 text-white hover:bg-red-700"
                                       : status === "interviewing"
-                                        ? "bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
+                                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
                                         : status === "shortlisted"
-                                          ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
-                                          : "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                          ? "bg-purple-600 text-white hover:bg-purple-700"
+                                          : "bg-blue-600 text-white hover:bg-blue-700"
                                 }`}
                               >
                                 Mark as {status}
@@ -1003,11 +1016,11 @@ export default function CandidatesPage() {
                     {/* Candidate Bio */}
                     {applicationDetail.applicant.bio && (
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                        <h3 className="text-lg font-semibold text-secondary mb-3">
                           Candidate Bio
                         </h3>
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                          <p className="text-gray-700">
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-300">
+                          <p className="text-gray-800 font-medium">
                             {applicationDetail.applicant.bio}
                           </p>
                         </div>
@@ -1016,44 +1029,44 @@ export default function CandidatesPage() {
 
                     {/* Personal Information */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h3 className="text-lg font-semibold text-secondary mb-3">
                         Personal Information
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
                         {applicationDetail.applicant.gender && (
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="text-sm text-gray-600 mb-1">
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                            <div className="text-sm text-gray-700 mb-1 font-semibold">
                               Gender
                             </div>
-                            <div className="font-medium capitalize">
+                            <div className="font-semibold text-secondary capitalize">
                               {applicationDetail.applicant.gender}
                             </div>
                           </div>
                         )}
                         {applicationDetail.applicant.languages && (
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="text-sm text-gray-600 mb-1">
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+                            <div className="text-sm text-gray-700 mb-1 font-semibold">
                               Languages
                             </div>
-                            <div className="font-medium">
+                            <div className="font-semibold text-secondary">
                               {applicationDetail.applicant.languages}
                             </div>
                           </div>
                         )}
                         {applicationDetail.applicant.profile_completion && (
-                          <div className="col-span-2 bg-gray-50 p-4 rounded-lg">
-                            <div className="text-sm text-gray-600 mb-1">
+                          <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-300">
+                            <div className="text-sm text-gray-700 mb-1 font-semibold">
                               Profile Completion
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div className="w-full bg-gray-300 rounded-full h-3">
                               <div
-                                className="bg-green-600 h-2.5 rounded-full"
+                                className="bg-green-600 h-3 rounded-full"
                                 style={{
                                   width: `${applicationDetail.applicant.profile_completion}%`,
                                 }}
                               ></div>
                             </div>
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-sm text-gray-800 mt-1 font-semibold">
                               {applicationDetail.applicant.profile_completion}%
                               complete
                             </div>
@@ -1064,48 +1077,48 @@ export default function CandidatesPage() {
 
                     {/* Job Details */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <h3 className="text-lg font-semibold text-secondary mb-3">
                         Job Details
                       </h3>
-                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-300">
                         <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-700 font-semibold">
                               Position:
                             </span>
-                            <span className="font-medium">
+                            <span className="font-semibold text-secondary">
                               {selectedJob?.title}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-700 font-semibold">
                               Subject:
                             </span>
-                            <span className="font-medium">
+                            <span className="font-semibold text-secondary">
                               {selectedJob?.subject}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-700 font-semibold">
                               Location:
                             </span>
-                            <span className="font-medium">
+                            <span className="font-semibold text-secondary">
                               {selectedJob?.location || "Remote"}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-700 font-semibold">
                               Schedule:
                             </span>
-                            <span className="font-medium">
+                            <span className="font-semibold text-secondary">
                               {selectedJob?.schedule || "Flexible"}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-700 font-semibold">
                               Salary:
                             </span>
-                            <span className="font-medium">
+                            <span className="font-semibold text-secondary">
                               {selectedJob?.salary_range || "Negotiable"}
                             </span>
                           </div>
@@ -1117,11 +1130,11 @@ export default function CandidatesPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+              <div className="sticky bottom-0 bg-white border-t border-gray-300 px-6 py-4 shadow-sm">
                 <div className="flex justify-between items-center">
                   <button
                     onClick={closeModal}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                    className="px-4 py-2 text-gray-700 hover:text-secondary font-semibold"
                   >
                     Close
                   </button>
@@ -1132,7 +1145,7 @@ export default function CandidatesPage() {
                           `/dashboard/profile/${applicationDetail.applicant.id}`,
                         )
                       }
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                      className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold shadow-sm"
                     >
                       View Full Profile
                     </button>
@@ -1145,10 +1158,10 @@ export default function CandidatesPage() {
                             : "hired",
                         )
                       }
-                      className={`px-6 py-2 rounded-lg font-medium ${
+                      className={`px-6 py-2.5 rounded-lg font-semibold shadow-md ${
                         applicationDetail.application.status === "hired"
-                          ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                          : "bg-green-500 text-white hover:bg-green-600"
+                          ? "bg-yellow-600 text-white hover:bg-yellow-700"
+                          : "bg-green-600 text-white hover:bg-green-700"
                       }`}
                     >
                       {applicationDetail.application.status === "hired"
