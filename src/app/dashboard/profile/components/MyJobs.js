@@ -276,32 +276,34 @@ export default function MyJobs() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Job Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Title *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Job Title <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   required
                   placeholder="e.g., Mathematics Teacher Needed"
                 />
               </div>
 
+              {/* Job Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Type *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Job Type <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="job_type"
                   value={formData.job_type}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                   required
                 >
                   {JOB_TYPES.map((type) => (
@@ -312,15 +314,16 @@ export default function MyJobs() {
                 </select>
               </div>
 
+              {/* Subject */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Subject <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="subject"
                   value={formData.subject}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                   required
                 >
                   <option value="">Select Subject</option>
@@ -332,8 +335,9 @@ export default function MyJobs() {
                 </select>
               </div>
 
+              {/* Vacancies */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Number of Vacancies
                 </label>
                 <input
@@ -342,12 +346,13 @@ export default function MyJobs() {
                   value={formData.vacancies}
                   onChange={handleInputChange}
                   min="1"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                 />
               </div>
 
+              {/* Location */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Location
                 </label>
                 <input
@@ -355,13 +360,14 @@ export default function MyJobs() {
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   placeholder="e.g., Addis Ababa, Bole"
                 />
               </div>
 
+              {/* Salary Range */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Salary Range
                 </label>
                 <input
@@ -369,27 +375,29 @@ export default function MyJobs() {
                   name="salary_range"
                   value={formData.salary_range}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   placeholder="e.g., ETB 5,000 - 8,000 per month"
                 />
               </div>
 
+              {/* Application Deadline */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Application Deadline *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Application Deadline <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="date"
                   name="application_deadline"
                   value={formData.application_deadline}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                   required
                 />
               </div>
 
+              {/* Start Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Expected Start Date
                 </label>
                 <input
@@ -397,12 +405,13 @@ export default function MyJobs() {
                   name="start_date"
                   value={formData.start_date}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                 />
               </div>
 
+              {/* Schedule */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Schedule
                 </label>
                 <input
@@ -410,13 +419,14 @@ export default function MyJobs() {
                   name="schedule"
                   value={formData.schedule}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   placeholder="e.g., Monday-Friday, 8am-4pm"
                 />
               </div>
 
+              {/* Duration */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Duration
                 </label>
                 <input
@@ -424,16 +434,17 @@ export default function MyJobs() {
                   name="duration"
                   value={formData.duration}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   placeholder="e.g., 6 months, 1 year"
                 />
               </div>
 
+              {/* Grade Levels - Full width */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-3">
                   Grade Levels
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   {GRADE_LEVELS.map((level) => (
                     <div key={level} className="flex items-center">
                       <input
@@ -443,11 +454,11 @@ export default function MyJobs() {
                         checked={formData.grade_levels.includes(level)}
                         onChange={handleInputChange}
                         name="grade_levels"
-                        className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
+                        className="h-5 w-5 text-[#D10000] focus:ring-[#D10000] border-gray-400 rounded"
                       />
                       <label
                         htmlFor={`level-${level}`}
-                        className="ml-2 text-sm text-gray-700"
+                        className="ml-3 text-sm font-medium text-gray-800"
                       >
                         {level}
                       </label>
@@ -456,65 +467,111 @@ export default function MyJobs() {
                 </div>
               </div>
 
+              {/* Job Description - Full width */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job Description *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Job Description <span className="text-red-600">*</span>
                 </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  rows="4"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  rows="5"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   required
                   placeholder="Describe the job responsibilities and expectations..."
                 />
               </div>
 
+              {/* Requirements - Full width */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Requirements (one per line) *
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Requirements (one per line){" "}
+                  <span className="text-red-600">*</span>
                 </label>
                 <textarea
                   name="requirements"
                   value={formData.requirements}
                   onChange={handleInputChange}
-                  rows="4"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                  rows="5"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
                   required
                   placeholder="• Bachelor's degree in Education\n• 2+ years teaching experience\n• Fluent in English"
                 />
+                <p className="mt-2 text-sm text-gray-600">
+                  Enter each requirement on a new line. Use bullet points (•) or
+                  dashes (-) if desired.
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 mb-4">
+            {/* Active Checkbox */}
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
               <input
                 type="checkbox"
                 id="is_active"
                 name="is_active"
                 checked={formData.is_active}
                 onChange={handleInputChange}
-                className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
+                className="h-5 w-5 text-[#D10000] focus:ring-[#D10000] border-gray-400 rounded"
               />
-              <label htmlFor="is_active" className="text-sm text-gray-700">
+              <label
+                htmlFor="is_active"
+                className="ml-3 text-sm font-medium text-gray-900"
+              >
                 Job is currently active and accepting applications
               </label>
             </div>
 
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-medium"
-              >
-                {editingJob ? "Update Job" : "Post Job"}
-              </button>
+            {/* Required Fields Note */}
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start">
+                <svg
+                  className="w-5 h-5 text-blue-600 mr-2 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm text-blue-800 font-medium">
+                    Required Fields
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    Fields marked with{" "}
+                    <span className="text-red-600 font-bold">*</span> are
+                    required. Please ensure all required information is provided
+                    before submitting.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-gray-200 space-y-4 sm:space-y-0">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Note:</span> All submitted jobs
+                will be reviewed before going live.
+              </div>
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-8 py-3 bg-[#D10000] text-white font-medium rounded-lg hover:bg-[#B00000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D10000] shadow-sm"
+                >
+                  {editingJob ? "Update Job" : "Post Job"}
+                </button>
+              </div>
             </div>
           </form>
         </div>
