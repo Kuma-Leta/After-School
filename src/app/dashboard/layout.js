@@ -196,12 +196,7 @@ export default function DashboardLayout({ children }) {
     if (["school", "ngo", "family"].includes(userRole)) {
       return [
         ...common,
-        {
-          href: "/dashboard/jobs",
-          label: "Post a Job",
-          icon: "➕",
-          description: "Create new job",
-        },
+
         {
           href: "/dashboard/jobs",
           label: "My Jobs",
