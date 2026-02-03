@@ -1,4 +1,4 @@
-// app/components/JobDetailModal.js - Updated Apply button section
+// app/components/JobDetailModal.js - FIXED
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,9 +11,30 @@ export default function JobDetailModal({ job, onClose }) {
   const [user, setUser] = useState(null);
   const [hasApplied, setHasApplied] = useState(false);
 
+  // Fix: Add the missing handleBackdropClick function
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   useEffect(() => {
     checkUserAndApplication();
   }, [job.id]);
+
+  // Add keyboard event listener for Escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
 
   const checkUserAndApplication = async () => {
     try {
@@ -78,7 +99,7 @@ export default function JobDetailModal({ job, onClose }) {
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto"
-      onClick={handleBackdropClick}
+      onClick={handleBackdropClick} // Now this function is defined
     >
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -117,6 +138,7 @@ export default function JobDetailModal({ job, onClose }) {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 p-2"
+              aria-label="Close modal"
             >
               <svg
                 className="w-6 h-6"
