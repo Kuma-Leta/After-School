@@ -3,9 +3,14 @@
 
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useState } from "react";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 export default function JobCard({ job, onClick }) {
   const router = useRouter();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { trialStatus, refreshTrialStatus } = useTrialStatus();
+  const [applyingJob, setApplyingJob] = useState(null);
   const daysLeft = Math.ceil(
     (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
   );
@@ -24,6 +29,9 @@ export default function JobCard({ job, onClick }) {
   };
 
   const handleApply = async () => {
+    // Store the job user wants to apply to
+    setApplyingJob(job);
+
     // Check if user is logged in
     try {
       const {
@@ -31,12 +39,24 @@ export default function JobCard({ job, onClick }) {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        // Redirect to login with return URL
         router.push(`/login?redirect=/jobs/${job.id}/apply`);
         return;
       }
 
+      // Check trial status if not loading
+      if (!trialStatus.loading) {
+        if (trialStatus.requiresPayment) {
+          // Show payment modal
+          setShowPaymentModal(true);
+          return;
+        }
+      }
+
       // Check if job is still active and not expired
+      const daysLeft = Math.ceil(
+        (new Date(job.application_deadline) - new Date()) /
+          (1000 * 60 * 60 * 24),
+      );
       if (!job.is_active || daysLeft <= 0) {
         alert("This job is no longer accepting applications.");
         return;
@@ -61,17 +81,43 @@ export default function JobCard({ job, onClick }) {
         return;
       }
 
-      // Redirect to application form
+      // If trial is active or payment made, proceed to application
       router.push(`/jobs/${job.id}/apply`);
     } catch (error) {
       console.error("Error checking application status:", error);
       router.push(`/jobs/${job.id}/apply`);
     }
   };
+  const renderTrialStatus = () => {
+    if (trialStatus.loading) return null;
+
+    if (trialStatus.isTrialActive) {
+      return (
+        <div className="absolute top-4 right-4 bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full font-medium">
+          Free Trial: {trialStatus.daysLeft} days left
+        </div>
+      );
+    }
+
+    if (trialStatus.requiresPayment) {
+      return (
+        <div className="absolute top-4 right-4 bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded-full font-medium">
+          Trial Expired
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute top-4 right-4 bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-medium">
+        Premium Account
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
       {/* Job Header */}
+      {renderTrialStatus()}
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
