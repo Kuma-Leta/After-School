@@ -1,11 +1,11 @@
-// app/hooks/useTrialStatus.js
+// app/hooks/useTrialStatus.js - FIXED
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 export function useTrialStatus() {
   const [trialStatus, setTrialStatus] = useState({
     isTrialActive: true,
-    daysLeft: 14,
+    trialDaysLeft: 14, // Changed from daysLeft to trialDaysLeft
     requiresPayment: false,
     loading: true,
   });
@@ -23,7 +23,7 @@ export function useTrialStatus() {
       if (!user) {
         setTrialStatus({
           isTrialActive: false,
-          daysLeft: 0,
+          trialDaysLeft: 0,
           requiresPayment: true,
           loading: false,
         });
@@ -41,11 +41,11 @@ export function useTrialStatus() {
 
       if (error) throw error;
 
-      // If no trial start date, set it (for existing users)
+      // If no trial start date, set it for new users
       if (!profile.trial_start_date) {
         const trialStart = new Date().toISOString();
         const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 14);
+        trialEnd.setDate(trialEnd.getDate() + 14); // 14-day trial
 
         await supabase
           .from("profiles")
@@ -58,29 +58,31 @@ export function useTrialStatus() {
 
         setTrialStatus({
           isTrialActive: true,
-          daysLeft: 14,
+          trialDaysLeft: 14, // Full trial period for new users
           requiresPayment: false,
           loading: false,
         });
         return;
       }
 
-      // Calculate days left in trial
+      // Calculate trial days left correctly
       const trialEndDate = new Date(profile.trial_end_date);
       const today = new Date();
-      const daysLeft = Math.ceil(
+
+      // CORRECT calculation: trial end date minus today
+      const trialDaysLeft = Math.ceil(
         (trialEndDate - today) / (1000 * 60 * 60 * 24),
       );
 
       // Check if trial is active and payment status
       const isTrialActive =
-        daysLeft > 0 && profile.subscription_tier === "trial";
+        trialDaysLeft > 0 && profile.subscription_tier === "trial";
       const requiresPayment =
         !isTrialActive && profile.payment_status !== "paid";
 
       setTrialStatus({
         isTrialActive,
-        daysLeft: Math.max(0, daysLeft),
+        trialDaysLeft: Math.max(0, trialDaysLeft), // Ensure non-negative
         requiresPayment,
         loading: false,
       });
@@ -88,7 +90,7 @@ export function useTrialStatus() {
       console.error("Error checking trial status:", error);
       setTrialStatus({
         isTrialActive: false,
-        daysLeft: 0,
+        trialDaysLeft: 0,
         requiresPayment: true,
         loading: false,
       });

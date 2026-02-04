@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import ProfileUpdateForm from "./components/ProfileUpdateForm";
+import { setupStorageBucket } from "@/lib/supabase/storageSetup";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function ProfilePage() {
         setLoading(false);
       }
     }
-
+    setupStorageBucket();
     loadData();
   }, [router]);
 
@@ -491,9 +491,10 @@ export default function ProfilePage() {
                 Profile Preview
               </span>
               <p className="text-yellow-700 text-sm mt-1">
-                This is a preview of your profile. Click "Edit Profile" above to
-                update your information. You can also navigate to specific
-                profile sections using the dashboard sidebar.
+                This is a preview of your profile. Click &quot;Edit
+                Profile&quot; above to update your information. You can also
+                navigate to specific profile sections using the dashboard
+                sidebar.
               </p>
             </div>
           </div>

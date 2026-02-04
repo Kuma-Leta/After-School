@@ -1,7 +1,9 @@
 // app/dashboard/profile/components/ProfileUpdateForm.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { setupStorageBucket } from "@/lib/supabase/storageSetup";
 
 // Common constants
 const TEACHING_SUBJECTS = [
@@ -137,7 +139,8 @@ export default function ProfileUpdateForm({
   const [formProfile, setFormProfile] = useState(profile || {});
   const [formRoleDetails, setFormRoleDetails] = useState(roleDetails || {});
   const [customSkill, setCustomSkill] = useState("");
-
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   useEffect(() => {
     if (profile) {
       setFormProfile(profile);
@@ -145,7 +148,23 @@ export default function ProfileUpdateForm({
     if (roleDetails) {
       setFormRoleDetails(roleDetails);
     }
+
+    // Call setupStorageBucket when component mounts
+    initializeStorage();
   }, [profile, roleDetails]);
+  const initializeStorage = async () => {
+    try {
+      const success = await setupStorageBucket();
+      setStorageReady(success);
+      if (!success) {
+        console.warn(
+          "Storage bucket setup failed. Profile pictures may not work.",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initialize storage:", error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -237,16 +256,105 @@ export default function ProfileUpdateForm({
     }
   };
 
-  const handleFileUpload = (e, field) => {
-    const file = e.target.files[0];
-    if (file) {
-      // In a real app, you would upload to Supabase storage here
-      console.log("File selected for", field, file);
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      alert("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File size must be less than 2MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Get current user
+      const {
+        data: { user: authUser },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !authUser) {
+        throw new Error("User not authenticated");
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const timestamp = Date.now();
+      const fileName = `${authUser.id}/${timestamp}.${fileExt}`;
+
+      // 1. Delete old avatar if exists
+      if (formProfile?.avatar_url) {
+        const oldUrl = new URL(formProfile.avatar_url);
+        const oldPath = oldUrl.pathname.split("/").pop();
+        if (oldPath) {
+          await supabase.storage
+            .from("avatars")
+            .remove([`${authUser.id}/${oldPath}`]);
+        }
+      }
+
+      // 2. Upload new file
+      const { error: uploadError, data } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Get public URL with cache-busting timestamp
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(fileName);
+
+      // Add timestamp to prevent caching
+      const imageUrl = `${publicUrl}?t=${timestamp}`;
+
+      // 4. Update form state immediately for preview
       setFormProfile((prev) => ({
         ...prev,
-        [field]: URL.createObjectURL(file), // Temporary URL
+        avatar_url: imageUrl,
       }));
+
+      // 5. Update in database immediately (don't wait for form save)
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          avatar_url: publicUrl, // Save without timestamp
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", authUser.id);
+
+      if (updateError) throw updateError;
+
+      alert("Profile picture updated successfully!");
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      alert("Failed to upload profile picture. Please try again.");
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
+  };
+  const handleImageError = (e) => {
+    console.error("Image failed to load:", formProfile.avatar_url);
+    // Remove the broken image and show placeholder
+    setFormProfile((prev) => ({
+      ...prev,
+      avatar_url: null,
+    }));
   };
 
   // Render role-specific sections
@@ -1401,24 +1509,64 @@ export default function ProfileUpdateForm({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Profile Picture
             </label>
-            <div className="flex items-center space-x-4">
-              {formProfile?.avatar_url ? (
-                <img
-                  src={formProfile.avatar_url}
-                  alt="Profile"
-                  className="w-16 h-16 rounded-full object-cover"
+            <div className="flex items-center space-x-6">
+              <div className="relative">
+                {formProfile?.avatar_url ? (
+                  <>
+                    <img
+                      key={formProfile.avatar_url} // Force re-render on URL change
+                      src={formProfile.avatar_url}
+                      alt="Profile"
+                      className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                      onError={handleImageError}
+                    />
+                    {uploading && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex flex-col items-center justify-center border-2 border-gray-200">
+                    <svg
+                      className="w-8 h-8 text-gray-500 mb-1"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-xs text-gray-500">No image</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-[#FF1E00] file:text-white
+                hover:file:bg-[#E01B00]
+                disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-              ) : (
-                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="text-gray-500">No image</span>
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileUpload(e, "avatar_url")}
-                className="flex-1"
-              />
+                <p className="text-xs text-gray-500 mt-2">
+                  Recommended: Square image, max 2MB. Supports JPG, PNG, GIF,
+                  WebP.
+                </p>
+                {uploading && (
+                  <p className="text-sm text-[#FF1E00] mt-1">Uploading...</p>
+                )}
+              </div>
             </div>
           </div>
 

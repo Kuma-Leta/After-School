@@ -94,7 +94,7 @@ export default function JobCard({ job, onClick }) {
     if (trialStatus.isTrialActive) {
       return (
         <div className="absolute top-4 right-4 bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full font-medium">
-          Free Trial: {trialStatus.daysLeft} days left
+          Free Trial: {trialStatus.trialDaysLeft} days left
         </div>
       );
     }
