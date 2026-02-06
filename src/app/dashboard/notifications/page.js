@@ -1,13 +1,10 @@
 // app/dashboard/notifications/page.js
 "use client";
-
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 export default function NotificationsPage() {
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#1F1F1F]">Notifications</h1>
-        <p className="text-gray-600 mt-2">Stay updated with platform alerts</p>
-      </div>
+      <NotificationDropdown />
       {/* Add notifications list */}
     </div>
   );
