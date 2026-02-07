@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { ApplicationNotifications } from "@/lib/services/application-notifications";
 import LoadingSpinner from "./components/LoadingSpinner";
 import DashboardHeader from "./components/Header";
 import JobCard from "./components/JobCard";
@@ -23,14 +24,31 @@ export default function CandidatesPage() {
   const [applicants, setApplicants] = useState([]);
   const [applicationDetail, setApplicationDetail] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [organization, setOrganization] = useState(null);
 
   useEffect(() => {
     if (!authLoading && user) {
-      loadEmployerJobs();
+      loadEmployerData();
     } else if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
+
+  // Load employer organization data
+  const loadEmployerData = async () => {
+    try {
+      const { data: orgData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setOrganization(orgData);
+      await loadEmployerJobs();
+    } catch (error) {
+      console.error("Error loading employer data:", error);
+    }
+  };
 
   // Helper functions
   const getStatusColor = (status) => {
@@ -85,21 +103,179 @@ export default function CandidatesPage() {
     return available;
   };
 
+  // Enhanced updateApplicationStatus with notifications
+  const updateApplicationStatus = async (applicationId, newStatus) => {
+    try {
+      // Get current application data
+      const currentApplication = applicants.find(
+        (app) => app.application.id === applicationId,
+      )?.application;
+
+      if (!currentApplication) {
+        throw new Error("Application not found");
+      }
+
+      const oldStatus = currentApplication.status;
+
+      const updateData = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (newStatus === "reviewed") {
+        updateData.reviewed_at = new Date().toISOString();
+      } else if (newStatus === "hired") {
+        updateData.hired_at = new Date().toISOString();
+      }
+
+      // 1. Optimistic UI Update
+      setApplicants((prevApplicants) =>
+        prevApplicants.map((item) =>
+          item.application.id === applicationId
+            ? {
+                ...item,
+                application: { ...item.application, ...updateData },
+              }
+            : item,
+        ),
+      );
+
+      // Update modal state if open
+      if (isModalOpen && applicationDetail?.application.id === applicationId) {
+        setApplicationDetail((prev) => ({
+          ...prev,
+          application: { ...prev.application, ...updateData },
+        }));
+      }
+
+      // 2. Perform the actual database update
+      const { data, error } = await supabase
+        .from("applications")
+        .update(updateData)
+        .eq("id", applicationId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 3. Send notification to applicant
+      try {
+        const notificationResult =
+          await ApplicationNotifications.sendApplicationStatusUpdate({
+            applicantId: currentApplication.applicant_id,
+            applicationId,
+            jobTitle: selectedJob?.title || "the position",
+            organizationName: organization?.full_name || "the organization",
+            oldStatus,
+            newStatus,
+            jobId: selectedJob?.id,
+            organizationId: organization?.id,
+          });
+
+        if (!notificationResult.success && !notificationResult.skipped) {
+          console.warn(
+            "Notification failed but status updated:",
+            notificationResult.error,
+          );
+        }
+      } catch (notificationError) {
+        console.error("Error sending notification:", notificationError);
+        // Don't fail the entire operation if notification fails
+      }
+
+      // 4. If hired, update job as filled and notify other applicants
+      if (newStatus === "hired" && selectedJob?.id) {
+        await markJobAsFilled(selectedJob.id, currentApplication.applicant_id);
+      }
+
+      // 5. Refresh background data
+      await Promise.all([
+        loadEmployerJobs(),
+        selectedJob ? loadJobApplicants(selectedJob) : Promise.resolve(),
+      ]);
+
+      // Show success message
+      showNotification(
+        `Status updated to ${newStatus} successfully!`,
+        "success",
+      );
+    } catch (error) {
+      console.error("Error updating status:", error);
+
+      // Rollback optimistic update
+      refreshData();
+
+      showNotification("Failed to update status. Please try again.", "error");
+    }
+  };
+
+  // Mark job as filled and notify other applicants
+  const markJobAsFilled = async (jobId, hiredApplicantId) => {
+    try {
+      // Update job status
+      const { error: jobError } = await supabase
+        .from("jobs")
+        .update({
+          is_filled: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      if (jobError) throw jobError;
+
+      // Get all other applicants for this job
+      const { data: otherApplications } = await supabase
+        .from("applications")
+        .select("applicant_id, status")
+        .eq("job_id", jobId)
+        .neq("applicant_id", hiredApplicantId)
+        .neq("status", "rejected")
+        .neq("status", "withdrawn");
+
+      if (otherApplications && otherApplications.length > 0) {
+        const otherApplicantIds = otherApplications.map(
+          (app) => app.applicant_id,
+        );
+
+        // Send notifications to other applicants
+        await ApplicationNotifications.sendJobFilledNotifications({
+          applicantIds: otherApplicantIds,
+          jobTitle: selectedJob?.title || "the position",
+          organizationName: organization?.full_name || "the organization",
+          jobId,
+        });
+      }
+
+      // Update selected job status
+      setSelectedJob((prev) => (prev ? { ...prev, is_filled: true } : prev));
+    } catch (error) {
+      console.error("Error marking job as filled:", error);
+    }
+  };
+
+  // Show notification toast
+  const showNotification = (message, type = "info") => {
+    // You can integrate with a toast library like react-hot-toast
+    // For now, using alert for simplicity
+    if (typeof window !== "undefined") {
+      alert(message);
+    }
+  };
+
   // Data fetching functions
   async function loadEmployerJobs() {
     try {
       setLoading(true);
 
-      // Fetch jobs AND their related application statuses in one go
       const { data: employerJobs, error: jobsError } = await supabase
         .from("jobs")
         .select(
           `
-        id, title, job_type, location, subject, 
-        grade_levels, schedule, salary_range, 
-        created_at, is_filled,
-        applications ( status )
-      `,
+          id, title, job_type, location, subject, 
+          grade_levels, schedule, salary_range, 
+          created_at, is_filled, is_active,
+          applications ( status )
+        `,
         )
         .eq("organization_id", user.id)
         .order("created_at", { ascending: false });
@@ -120,7 +296,6 @@ export default function CandidatesPage() {
 
       setJobs(jobsWithCounts);
 
-      // Sync selected job if we are currently looking at one
       if (selectedJob) {
         const currentJob = jobsWithCounts.find((j) => j.id === selectedJob.id);
         if (currentJob) {
@@ -129,6 +304,10 @@ export default function CandidatesPage() {
       }
     } catch (error) {
       console.error("Error loading jobs:", error);
+      showNotification(
+        "Failed to load jobs. Please refresh the page.",
+        "error",
+      );
     } finally {
       setLoading(false);
     }
@@ -215,101 +394,106 @@ export default function CandidatesPage() {
     } catch (error) {
       console.error("Error loading job applicants:", error);
       setApplicants([]);
+      showNotification("Failed to load applicants. Please try again.", "error");
     } finally {
       setLoading(false);
     }
   }
-
   async function loadApplicationDetail(applicant) {
     try {
       setLoading(true);
 
+      console.log("Loading application detail for applicant:", applicant);
+
+      // First, get the application
       const { data: application, error: appError } = await supabase
         .from("applications")
         .select("*")
         .eq("id", applicant.application.id)
         .single();
 
-      if (appError) throw appError;
+      if (appError) {
+        console.error("Application error details:", {
+          message: appError.message,
+          details: appError.details,
+          hint: appError.hint,
+          code: appError.code,
+        });
+        throw new Error(`Failed to fetch application: ${appError.message}`);
+      }
 
+      if (!application) {
+        throw new Error("Application not found");
+      }
+
+      console.log("Application loaded:", application);
+
+      // Fetch job details with organization info
       const { data: job, error: jobError } = await supabase
         .from("jobs")
-        .select("*")
+        .select(
+          `
+        *,
+        organization:profiles!jobs_organization_id_fkey(*)
+      `,
+        )
         .eq("id", application.job_id)
         .single();
 
-      if (jobError) throw jobError;
+      if (jobError) {
+        console.error("Job error details:", {
+          message: jobError.message,
+          details: jobError.details,
+          hint: jobError.hint,
+          code: jobError.code,
+        });
+        throw new Error(`Failed to fetch job: ${jobError.message}`);
+      }
+
+      if (!job) {
+        throw new Error("Job not found");
+      }
+
+      console.log("Job loaded:", job);
+
+      // Also fetch applicant's profile to ensure we have latest data
+      const { data: applicantProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", application.applicant_id)
+        .single();
+
+      if (profileError) {
+        console.warn(
+          "Could not fetch applicant profile:",
+          profileError.message,
+        );
+        // Don't throw, use existing profile data
+      }
 
       setApplicationDetail({
         application,
-        applicant: applicant.profile,
+        applicant: applicantProfile || applicant.profile, // Use fresh data if available
         job,
+        organization: job.organization,
       });
 
+      console.log("Application detail set successfully");
       setIsModalOpen(true);
     } catch (error) {
-      console.error("Error loading application details:", error);
+      console.error("Error loading application details:", {
+        message: error.message,
+        stack: error.stack,
+        fullError: error,
+      });
+      showNotification(
+        `Failed to load application details: ${error.message}`,
+        "error",
+      );
     } finally {
       setLoading(false);
     }
   }
-
-  const updateApplicationStatus = async (applicationId, newStatus) => {
-    try {
-      const updateData = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (newStatus === "reviewed") {
-        updateData.reviewed_at = new Date().toISOString();
-      } else if (newStatus === "hired") {
-        updateData.hired_at = new Date().toISOString();
-      }
-
-      // 1. Optimistic UI Update: Update the local applicants list immediately
-      setApplicants((prevApplicants) =>
-        prevApplicants.map((item) =>
-          item.application.id === applicationId
-            ? {
-                ...item,
-                application: { ...item.application, status: newStatus },
-              }
-            : item,
-        ),
-      );
-
-      // 2. Perform the actual database update
-      const { error } = await supabase
-        .from("applications")
-        .update(updateData)
-        .eq("id", applicationId);
-
-      if (error) throw error;
-
-      // 3. Update Modal state if it's open
-      if (isModalOpen && applicationDetail) {
-        setApplicationDetail((prev) => ({
-          ...prev,
-          application: {
-            ...prev.application,
-            ...updateData,
-          },
-        }));
-      }
-
-      // 4. Refresh background data to ensure counts (Pending/Hired) are accurate
-      await Promise.all([
-        loadEmployerJobs(), // Updates the main dashboard counts
-        selectedJob ? loadJobApplicants(selectedJob) : Promise.resolve(), // Updates the current list
-      ]);
-    } catch (error) {
-      console.error("Error updating status:", error);
-      alert("Update failed. Please try again.");
-      // Rollback: refresh data to restore original state on error
-      refreshData();
-    }
-  };
 
   // Helper function to refresh data
   const refreshData = async () => {
@@ -404,13 +588,22 @@ export default function CandidatesPage() {
     };
   };
 
+  // Handle new job posting
+  const handlePostNewJob = () => {
+    router.push("/dashboard/jobs/post");
+  };
+
   if (authLoading || loading) {
     return <LoadingSpinner />;
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <DashboardHeader {...getHeaderContent()} breadcrumbs={getBreadcrumbs()} />
+      <DashboardHeader
+        {...getHeaderContent()}
+        breadcrumbs={getBreadcrumbs()}
+        onPostNewJob={activeTab === "jobs" ? handlePostNewJob : undefined}
+      />
 
       {/* Main Content Area */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 min-h-[600px]">
@@ -434,7 +627,11 @@ export default function CandidatesPage() {
 
         {activeTab === "applicants" && (
           <div className="p-6">
-            <JobSummaryBanner job={selectedJob} applicants={applicants} />
+            <JobSummaryBanner
+              job={selectedJob}
+              applicants={applicants}
+              organization={organization}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {applicants.length > 0 ? (
@@ -464,6 +661,7 @@ export default function CandidatesPage() {
         onClose={closeModal}
         applicationDetail={applicationDetail}
         selectedJob={selectedJob}
+        organization={organization}
         getStatusColor={getStatusColor}
         formatDate={formatDate}
         getAvailableStatuses={getAvailableStatuses}

@@ -30,7 +30,6 @@ export default function ModalBody({
           <CoverLetterSection
             coverLetter={applicationDetail.application.cover_letter}
           />
-
           <ApplicationInfoSection
             application={applicationDetail.application}
             formatDate={formatDate}
@@ -38,6 +37,9 @@ export default function ModalBody({
 
           <StatusUpdateSection
             application={applicationDetail.application}
+            applicant={applicationDetail.applicant}
+            job={applicationDetail.job}
+            organization={organization || applicationDetail.organization}
             getStatusColor={getStatusColor}
             formatDate={formatDate}
             getAvailableStatuses={getAvailableStatuses}
