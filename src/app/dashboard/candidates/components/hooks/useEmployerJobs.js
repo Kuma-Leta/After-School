@@ -123,7 +123,7 @@ export function useEmployerJobs(user) {
         .select(
           `
           id,
-          email,  // ADD THIS
+          email,  
           full_name,
           phone,
           role,
