@@ -190,44 +190,57 @@ export const useChat = () => {
   );
 
   // Create a new conversation
+  // In useChat.js - improved createConversation
   const createConversation = useCallback(
     async (participantIds, isGroup = false, name, avatarUrl) => {
       try {
-        const user = await supabase.auth.getUser();
-        const userId = user.data.user?.id;
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session?.user) throw new Error("No active session");
 
-        if (!userId) throw new Error("User not authenticated");
+        const userId = session.user.id;
 
-        // Create conversation
-        const { data: conversation, error: convError } = await supabase
+        // 1. Create conversation via RPC (returns basic fields)
+        const { data: conversation, error } = await supabase.rpc(
+          "create_conversation_with_participants",
+          {
+            p_is_group: isGroup,
+            p_name: name || null,
+            p_avatar_url: avatarUrl || null,
+            p_participant_ids: [userId, ...participantIds],
+            p_creator_id: userId,
+          },
+        );
+
+        if (error) throw error;
+
+        // 2. Fetch the full conversation with participants and profiles
+        const { data: fullConversation, error: fetchError } = await supabase
           .from("conversations")
-          .insert({
-            is_group: isGroup,
-            name,
-            avatar_url: avatarUrl,
-          })
-          .select()
+          .select(
+            `
+        *,
+        participants:conversation_participants(
+          *,
+          profile:profiles(*)
+        )
+      `,
+          )
+          .eq("id", conversation.id)
           .single();
 
-        if (convError) throw convError;
+        if (fetchError) throw fetchError;
 
-        // Add participants (including current user)
-        const allParticipants = [userId, ...participantIds];
-        const participantsData = allParticipants.map((userId, index) => ({
-          conversation_id: conversation.id,
-          user_id: userId,
-          is_admin: index === 0 && isGroup, // First user is admin in group chats
-        }));
-
-        const { error: partError } = await supabase
-          .from("conversation_participants")
-          .insert(participantsData);
-
-        if (partError) throw partError;
-
+        // 3. Refresh the conversations list
         await fetchConversations();
-        return conversation;
+
+        // 4. Return the FULL conversation object
+        return fullConversation;
       } catch (err) {
+        console.error("Create conversation error:", err.message || err);
         setError(err.message || "Failed to create conversation");
         throw err;
       }

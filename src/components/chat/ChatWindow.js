@@ -50,7 +50,27 @@ const ChatWindow = ({
   };
 
   const getConversationName = () => {
-    if (!conversation) return "";
+    if (!conversation) return ""; // In ChatWindow.jsx
+
+    const getOtherParticipants = () => {
+      if (!conversation || !Array.isArray(conversation.participants)) {
+        return [];
+      }
+      return conversation.participants.filter(
+        (p) => p.user_id !== currentUserId,
+      );
+    };
+
+    const getConversationName = () => {
+      if (!conversation) return "";
+      if (conversation.is_group && conversation.name) {
+        return conversation.name;
+      }
+      const others = getOtherParticipants();
+      return others
+        .map((p) => p.profile?.full_name || "Unknown User")
+        .join(", ");
+    };
 
     if (conversation.is_group && conversation.name) {
       return conversation.name;
