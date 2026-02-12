@@ -120,8 +120,8 @@ export default function DashboardLayout({ children }) {
         description: "View conversations",
       },
       {
-        href: "/dashboard/notifications",
-        label: "Notifications",
+        href: "/dashboard/settings",
+        label: "settings",
         icon: "🔔",
         description: "Alerts & updates",
       },

@@ -13,6 +13,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 
 export default function Header() {
   const [user, setUser] = useState(null);
@@ -87,17 +88,7 @@ export default function Header() {
                 {user ? (
                   <>
                     {/* Notifications */}
-                    <button
-                      onClick={() => router.push("/dashboard/notifications")}
-                      className="relative p-2 text-gray-600 hover:text-[#FF1E00] rounded-full hover:bg-gray-100"
-                    >
-                      <Bell className="w-5 h-5" />
-                      {/* Uncomment and replace count with real data when notifications are ready */}
-                      {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        3
-                      </span> */}
-                    </button>
-
+                    <NotificationDropdown />
                     {/* Profile Dropdown */}
                     <div className="relative" ref={dropdownRef}>
                       <button
