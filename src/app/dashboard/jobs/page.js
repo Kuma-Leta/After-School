@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import MyJobs from "@/app/dashboard/profile/components/MyJobs";
+import Header from "../candidates/components/Layout/Header";
 
 export default function JobsPage() {
   const router = useRouter();
