@@ -122,8 +122,8 @@ export default function DashboardLayout({ children }) {
       {
         href: "/dashboard/settings",
         label: "settings",
-        icon: "🔔",
-        description: "Alerts & updates",
+        icon: "⚙️",
+        description: "Manage your settings",
       },
     ];
 
