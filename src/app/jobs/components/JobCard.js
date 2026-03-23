@@ -8,9 +8,15 @@ import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 export default function JobCard({ job, onClick }) {
   const router = useRouter();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const { trialStatus, refreshTrialStatus } = useTrialStatus();
-  const [applyingJob, setApplyingJob] = useState(null);
+  const { trialStatus } = useTrialStatus(); // note: we don't need refreshTrialStatus here unless you add payment modal later
+  // Removed unused applyingJob state
+
+  // Guard against missing job prop
+  if (!job) {
+    console.warn("JobCard rendered without a job prop");
+    return null;
+  }
+
   const daysLeft = Math.ceil(
     (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
   );
@@ -28,41 +34,31 @@ export default function JobCard({ job, onClick }) {
     return "📅";
   };
 
-  const handleApply = async () => {
-    // Store the job user wants to apply to
-    setApplyingJob(job);
-
-    // Check if user is logged in
+  // Core apply logic
+  const applyToJob = async (skipPaymentCheck = false) => {
     try {
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
+      if (userError) throw userError;
 
       if (!user) {
         router.push(`/login?redirect=/jobs/${job.id}/apply`);
         return;
       }
 
-      // Check trial status if not loading
-      if (!trialStatus.loading) {
-        if (trialStatus.requiresPayment) {
-          // Show payment modal
-          setShowPaymentModal(true);
-          return;
-        }
-      }
+      // Wait for trial status to load
+      if (trialStatus.loading) return;
 
-      // Check if job is still active and not expired
-      const daysLeft = Math.ceil(
-        (new Date(job.application_deadline) - new Date()) /
-          (1000 * 60 * 60 * 24),
-      );
-      if (!job.is_active || daysLeft <= 0) {
-        alert("This job is no longer accepting applications.");
+      // Payment check (can be skipped after successful payment)
+      if (!skipPaymentCheck && trialStatus.requiresPayment) {
+        const returnUrl = `/jobs/${job.id}/apply`;
+        router.push(`/payment?redirect=${encodeURIComponent(returnUrl)}`);
         return;
       }
 
-      // Check if user has already applied
+      // Check if already applied
       const { data: existingApplication } = await supabase
         .from("applications")
         .select("id")
@@ -81,13 +77,34 @@ export default function JobCard({ job, onClick }) {
         return;
       }
 
-      // If trial is active or payment made, proceed to application
+      // All checks passed – proceed to application form
       router.push(`/jobs/${job.id}/apply`);
     } catch (error) {
-      console.error("Error checking application status:", error);
+      console.error("Error in applyToJob:", error);
+      // Fallback: still try to go to application (maybe the check failed but user can still apply)
       router.push(`/jobs/${job.id}/apply`);
     }
   };
+
+  const handleApply = async () => {
+    await applyToJob();
+  };
+
+  const handleViewDetails = (e) => {
+    try {
+      if (onClick) {
+        onClick(e);
+      } else {
+        // Fallback: navigate to job details page
+        router.push(`/jobs/${job.id}`);
+      }
+    } catch (error) {
+      console.error("Error in handleViewDetails:", error);
+      // Optionally show a toast or redirect to a safe page
+      router.push(`/jobs/${job.id}`);
+    }
+  };
+
   const renderTrialStatus = () => {
     if (trialStatus.loading) return null;
 
@@ -116,13 +133,12 @@ export default function JobCard({ job, onClick }) {
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Job Header */}
       {renderTrialStatus()}
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3
-              onClick={onClick}
+              onClick={handleViewDetails}
               className="text-xl font-bold text-gray-900 hover:text-[#FF1E00] cursor-pointer line-clamp-2"
             >
               {job.title}
@@ -258,7 +274,15 @@ export default function JobCard({ job, onClick }) {
         {/* Footer */}
         <div className="flex justify-between items-center">
           <div
-            className={`px-3 py-1 rounded-full text-sm font-medium ${daysLeft <= 0 ? "bg-red-100 text-red-800" : daysLeft <= 3 ? "bg-red-100 text-red-800" : daysLeft <= 7 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"}`}
+            className={`px-3 py-1 rounded-full text-sm font-medium ${
+              daysLeft <= 0
+                ? "bg-red-100 text-red-800"
+                : daysLeft <= 3
+                  ? "bg-red-100 text-red-800"
+                  : daysLeft <= 7
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-green-100 text-green-800"
+            }`}
           >
             ⏳{" "}
             {daysLeft > 0
@@ -267,21 +291,25 @@ export default function JobCard({ job, onClick }) {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={onClick}
+              onClick={handleViewDetails}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
             >
               View Details
             </button>
             <button
               onClick={handleApply}
-              disabled={daysLeft <= 0 || !job.is_active}
+              disabled={trialStatus.loading || daysLeft <= 0 || !job.is_active}
               className={`px-4 py-2 font-medium rounded-lg ${
-                daysLeft <= 0 || !job.is_active
+                trialStatus.loading || daysLeft <= 0 || !job.is_active
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
               }`}
             >
-              {daysLeft <= 0 || !job.is_active ? "Closed" : "Apply Now"}
+              {trialStatus.loading
+                ? "Checking..."
+                : daysLeft <= 0 || !job.is_active
+                  ? "Closed"
+                  : "Apply Now"}
             </button>
           </div>
         </div>
