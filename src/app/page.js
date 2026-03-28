@@ -61,9 +61,8 @@ export default async function Home() {
             <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#FF1E00]/10 text-[#FF1E00] text-sm font-medium mb-6">
               🇪🇹 Made for Ethiopia
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1F1F1F] leading-tight">
-              Ethiopia’s #1 Platform for
-              <span className="text-[#FF1E00]"> Teaching Jobs & Tutors</span>
+            <h1>
+              Get Hired as a Teacher or Find Qualified Tutors in Ethiopia — Fast
             </h1>
 
             <p className="mt-6 text-lg text-gray-600 max-w-xl">
@@ -79,7 +78,7 @@ export default async function Home() {
                     href="/register?role=teacher"
                     className="relative px-8 py-4 bg-[#FF1E00] text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group overflow-hidden"
                   >
-                    <span className="relative z-10">Find Teaching Jobs</span>
+                    <span className="relative z-10">Start Free Today</span>
                     <span className="relative z-10 group-hover:translate-x-1 transition-transform">
                       →
                     </span>
@@ -202,7 +201,32 @@ export default async function Home() {
             </div>
           </div>
         </div>
+        <section className="mt-24">
+          <h3 className="text-2xl font-bold text-center mb-10">
+            Trusted by Educators Across Ethiopia
+          </h3>
 
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Abel T.",
+                role: "Math Teacher",
+                text: "I found a job within 2 weeks. This platform changed my life.",
+              },
+              {
+                name: "Bright Future School",
+                role: "School",
+                text: "We hired 3 qualified teachers بسهولة.",
+              },
+            ].map((t, i) => (
+              <div key={i} className="bg-white p-6 rounded-xl shadow">
+                <p className="text-gray-600 mb-4">“{t.text}”</p>
+                <div className="font-semibold">{t.name}</div>
+                <div className="text-sm text-gray-400">{t.role}</div>
+              </div>
+            ))}
+          </div>
+        </section>
         {/* How It Works */}
         <section className="mt-32">
           {/* Header */}
