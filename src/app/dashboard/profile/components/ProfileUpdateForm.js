@@ -139,8 +139,9 @@ export default function ProfileUpdateForm({
   const [formProfile, setFormProfile] = useState(profile || {});
   const [formRoleDetails, setFormRoleDetails] = useState(roleDetails || {});
   const [customSkill, setCustomSkill] = useState("");
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
   useEffect(() => {
     if (profile) {
       setFormProfile(profile);
@@ -256,18 +257,19 @@ export default function ProfileUpdateForm({
     }
   };
 
+ // ...existing code...
+
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!validTypes.includes(file.type)) {
       alert("Please upload a valid image file (JPEG, PNG, GIF, or WebP)");
       return;
     }
 
-    // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       alert("File size must be less than 2MB");
       return;
@@ -275,33 +277,29 @@ export default function ProfileUpdateForm({
 
     setUploading(true);
     try {
-      // Get current user
       const {
-        data: { user: authUser },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !authUser) {
-        throw new Error("User not authenticated");
-      }
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      // Generate unique filename
+      if (sessionError) throw sessionError;
+
+      const authUser = session?.user || user;
+      if (!authUser) throw new Error("User not authenticated");
+
       const fileExt = file.name.split(".").pop();
       const timestamp = Date.now();
       const fileName = `${authUser.id}/${timestamp}.${fileExt}`;
 
-      // 1. Delete old avatar if exists
       if (formProfile?.avatar_url) {
         const oldUrl = new URL(formProfile.avatar_url);
         const oldPath = oldUrl.pathname.split("/").pop();
         if (oldPath) {
-          await supabase.storage
-            .from("avatars")
-            .remove([`${authUser.id}/${oldPath}`]);
+          await supabase.storage.from("avatars").remove([`${authUser.id}/${oldPath}`]);
         }
       }
 
-      // 2. Upload new file
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(fileName, file, {
           cacheControl: "3600",
@@ -311,25 +309,21 @@ export default function ProfileUpdateForm({
 
       if (uploadError) throw uploadError;
 
-      // 3. Get public URL with cache-busting timestamp
       const {
         data: { publicUrl },
       } = supabase.storage.from("avatars").getPublicUrl(fileName);
 
-      // Add timestamp to prevent caching
       const imageUrl = `${publicUrl}?t=${timestamp}`;
 
-      // 4. Update form state immediately for preview
       setFormProfile((prev) => ({
         ...prev,
         avatar_url: imageUrl,
       }));
 
-      // 5. Update in database immediately (don't wait for form save)
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
-          avatar_url: publicUrl, // Save without timestamp
+          avatar_url: publicUrl,
           updated_at: new Date().toISOString(),
         })
         .eq("id", authUser.id);
@@ -342,12 +336,12 @@ export default function ProfileUpdateForm({
       alert("Failed to upload profile picture. Please try again.");
     } finally {
       setUploading(false);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     }
   };
+// ...existing code...
   const handleImageError = (e) => {
     console.error("Image failed to load:", formProfile.avatar_url);
     // Remove the broken image and show placeholder
