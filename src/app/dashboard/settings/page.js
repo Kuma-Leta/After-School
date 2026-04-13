@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { checkUserSubscription } from "@/lib/supabase/client";
@@ -21,11 +21,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  async function loadUserData() {
+  const loadUserData = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -52,7 +48,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
 
   if (loading) {
     return (

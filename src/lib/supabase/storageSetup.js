@@ -1,19 +1,38 @@
-// utils/storageSetup.js
-import { supabase } from "@/lib/supabase/client";
+"use client";
+
+import { createClient } from "@supabase/supabase-js";
 
 export async function setupStorageBucket() {
   try {
-    // Check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error(
+        "Missing Supabase env vars for storage setup (NEXT_PUBLIC_SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY).",
+      );
+      return false;
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+
+    const { data: buckets, error: listError } =
+      await supabaseAdmin.storage.listBuckets();
+    if (listError) {
+      console.error("Error listing buckets:", listError);
+      return false;
+    }
+
     const avatarsBucket = buckets?.find((b) => b.name === "avatars");
 
     if (!avatarsBucket) {
-      // Create the bucket
-      const { error: createError } = await supabase.storage.createBucket(
+      const { error: createError } = await supabaseAdmin.storage.createBucket(
         "avatars",
         {
           public: true,
-          fileSizeLimit: 2097152, // 2MB
+          fileSizeLimit: 2097152,
           allowedMimeTypes: [
             "image/jpeg",
             "image/png",
@@ -28,58 +47,20 @@ export async function setupStorageBucket() {
         return false;
       }
 
-      // Set public access policy
-      const { error: policyError } = await supabase
-        .from("storage.buckets")
-        .update({ public: true })
-        .eq("name", "avatars");
-
-      if (policyError) {
-        console.error("Error setting bucket policy:", policyError);
-        return false;
-      }
-
       console.log("✅ Created avatars bucket");
     }
 
-    // Create RLS policies if they don't exist
-    const policies = [
+    const { error: updateError } = await supabaseAdmin.storage.updateBucket(
+      "avatars",
       {
-        name: "Public read access",
-        policy: `
-          CREATE POLICY "Public read access"
-          ON storage.objects FOR SELECT
-          USING (bucket_id = 'avatars');
-        `,
+        public: true,
       },
-      {
-        name: "Authenticated insert access",
-        policy: `
-          CREATE POLICY "Authenticated insert access"
-          ON storage.objects FOR INSERT
-          TO authenticated
-          WITH CHECK (bucket_id = 'avatars');
-        `,
-      },
-      {
-        name: "Users update own files",
-        policy: `
-          CREATE POLICY "Users update own files"
-          ON storage.objects FOR UPDATE
-          TO authenticated
-          USING (bucket_id = 'avatars');
-        `,
-      },
-      {
-        name: "Users delete own files",
-        policy: `
-          CREATE POLICY "Users delete own files"
-          ON storage.objects FOR DELETE
-          TO authenticated
-          USING (bucket_id = 'avatars');
-        `,
-      },
-    ];
+    );
+
+    if (updateError) {
+      console.error("Error updating bucket policy:", updateError);
+      return false;
+    }
 
     console.log("✅ Storage setup complete");
     return true;
