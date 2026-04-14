@@ -1,7 +1,19 @@
 // app/page.js
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { GraduationCap, School, BookOpen, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  BriefcaseBusiness,
+  CheckCircle2,
+  GraduationCap,
+  MapPin,
+  MessageSquareMore,
+  School,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 export default async function Home() {
   // Check if user is logged in to show appropriate CTAs
@@ -10,27 +22,134 @@ export default async function Home() {
   } = await supabase.auth.getSession();
   const isLoggedIn = !!session;
 
+  const audienceCards = [
+    {
+      title: "Teachers",
+      description:
+        "Discover verified opportunities that match your subjects, level, and location.",
+      icon: GraduationCap,
+    },
+    {
+      title: "Schools",
+      description:
+        "Recruit qualified educators faster with clearer profiles and smoother screening.",
+      icon: School,
+    },
+    {
+      title: "University Students",
+      description:
+        "Find part-time tutoring and teaching work that fits your schedule.",
+      icon: BookOpen,
+    },
+    {
+      title: "Families",
+      description:
+        "Connect with trusted private tutors for home support and exam preparation.",
+      icon: Users,
+    },
+  ];
+
+  const highlights = [
+    "Verified educator profiles and clearer role matching",
+    "Messaging and application flow built for fast follow-up",
+    "Designed around Ethiopia's education and hiring context",
+  ];
+
+  const featurePoints = [
+    {
+      title: "Smarter Matching",
+      description:
+        "Reduce noise and surface educators by subject, experience, and availability.",
+      icon: Sparkles,
+    },
+    {
+      title: "Local-First Hiring",
+      description:
+        "Built for schools, NGOs, tutors, and families working across Ethiopia.",
+      icon: MapPin,
+    },
+    {
+      title: "Secure Communication",
+      description:
+        "Keep outreach, follow-up, and hiring conversations in one place.",
+      icon: MessageSquareMore,
+    },
+    {
+      title: "Trusted Profiles",
+      description:
+        "Present experience, qualifications, and intent in a format employers can review quickly.",
+      icon: ShieldCheck,
+    },
+  ];
+
+  const steps = [
+    {
+      title: "Create a standout profile",
+      description:
+        "Share subjects, qualifications, experience, and the type of opportunity you want.",
+    },
+    {
+      title: "Discover strong-fit matches",
+      description:
+        "Browse roles or candidates with less friction and more useful context.",
+    },
+    {
+      title: "Connect and move quickly",
+      description:
+        "Apply, message, review, and hire through one streamlined workflow.",
+    },
+  ];
+
+  const testimonials = [
+    {
+      quote:
+        "I found a teaching role in less than two weeks, and the profile setup made it easy to show my strengths.",
+      name: "Abel T.",
+      role: "Mathematics Teacher",
+    },
+    {
+      quote:
+        "We filled three urgent openings faster because candidate profiles were clearer and easier to compare.",
+      name: "Bright Future School",
+      role: "School Administrator",
+    },
+    {
+      quote:
+        "The platform made private tutoring feel more trustworthy for our family and much easier to arrange.",
+      name: "Rahel G.",
+      role: "Parent",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1F1F1F]/5 to-white">
-      {/* Navigation */}
-      <nav className="px-4 sm:px-6 lg:px-8 py-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto flex flex-wrap gap-4 justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#FF1E00] rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">AS</span>
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,30,0,0.16),_transparent_28%),linear-gradient(180deg,#fff7f3_0%,#ffffff_40%,#fff9f5_100%)] text-[#1F1F1F]">
+      <div className="landing-grid pointer-events-none absolute inset-0 opacity-60" />
+      <div className="landing-orb left-[-140px] top-24" />
+      <div className="landing-orb right-[-120px] top-[560px]" />
+
+      <nav className="relative z-10 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-full border border-white/70 bg-white/75 px-4 py-3 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FF5A36] shadow-[0_16px_40px_rgba(255,90,54,0.35)]">
+              <span className="text-lg font-black tracking-tight text-white">
+                AS
+              </span>
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-bold text-[#1F1F1F]">
-                After<span className="text-[#FF1E00]">School</span>
-              </span>
-              <p className="text-xs text-gray-500 -mt-1">Ethiopia</p>
+              <p className="text-lg font-black tracking-tight sm:text-xl">
+                After<span className="text-[#FF5A36]">School</span>
+              </p>
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#6B7280]">
+                Ethiopia education network
+              </p>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          </Link>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {isLoggedIn ? (
               <Link
                 href="/dashboard"
-                className="px-6 py-2.5 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium shadow-sm hover:shadow"
+                className="inline-flex items-center justify-center rounded-full border border-[#1F1F1F]/10 bg-[#1F1F1F] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
               >
                 Go to Dashboard
               </Link>
@@ -38,15 +157,15 @@ export default async function Home() {
               <>
                 <Link
                   href="/login"
-                  className="px-4 py-2 text-[#1F1F1F] hover:text-[#FF1E00] font-medium transition-colors"
+                  className="inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold text-[#1F1F1F] transition hover:bg-black/5"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="px-6 py-2.5 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium shadow-sm hover:shadow"
+                  className="inline-flex items-center justify-center rounded-full bg-[#FF5A36] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(255,90,54,0.34)] transition hover:bg-[#E94724]"
                 >
-                  Get Started
+                  Join Free
                 </Link>
               </>
             )}
@@ -54,533 +173,460 @@ export default async function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-        <div className="text-center lg:text-left lg:flex lg:items-center lg:justify-between">
-          <div className="lg:w-1/2">
-            <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#FF1E00]/10 text-[#FF1E00] text-sm font-medium mb-6">
-              🇪🇹 Made for Ethiopia
-            </div>
-            <h1>
-              Get Hired as a Teacher or Find Qualified Tutors in Ethiopia — Fast
-            </h1>
+      <main className="relative z-10">
+        <section className="px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-10">
+          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#FF5A36]/20 bg-white/80 px-4 py-2 text-sm font-semibold text-[#C63E21] shadow-sm backdrop-blur">
+                <Sparkles className="h-4 w-4" />
+                Built for teachers, schools, and families in Ethiopia
+              </div>
 
-            <p className="mt-6 text-lg text-gray-600 max-w-xl">
-              Find teaching jobs, hire qualified educators, and connect with
-              tutors — all in one platform built for Ethiopia.
-            </p>
+              <h1 className="mt-6 max-w-3xl text-5xl font-black tracking-tight text-[#171717] sm:text-6xl lg:text-7xl lg:leading-[1.02]">
+                The hiring platform that makes education opportunities feel
+                alive.
+              </h1>
 
-            <div className="mt-12 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start w-full">
-              {!isLoggedIn ? (
-                <>
-                  {/* Primary CTA */}
+              <p className="mt-6 max-w-2xl text-base leading-8 text-[#52525B] sm:text-lg">
+                Find teaching jobs, recruit qualified educators, and connect
+                with trusted tutors through a platform designed to move from
+                discovery to placement with less friction.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+                {!isLoggedIn ? (
+                  <>
+                    <Link
+                      href="/register?role=teacher"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#FF5A36] px-7 py-4 text-base font-bold text-white shadow-[0_20px_40px_rgba(255,90,54,0.35)] transition hover:translate-y-[-1px] hover:bg-[#E94724]"
+                    >
+                      Start as a Teacher
+                      <ArrowRight className="h-5 w-5" />
+                    </Link>
+                    <Link
+                      href="/register?role=school"
+                      className="inline-flex items-center justify-center rounded-full border border-[#1F1F1F]/10 bg-white px-7 py-4 text-base font-bold text-[#1F1F1F] shadow-[0_16px_32px_rgba(15,23,42,0.08)] transition hover:border-[#FF5A36]/30 hover:text-[#C63E21]"
+                    >
+                      Hire Qualified Talent
+                    </Link>
+                  </>
+                ) : (
                   <Link
-                    href="/register?role=teacher"
-                    className="relative px-8 py-4 bg-[#FF1E00] text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group overflow-hidden"
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#FF5A36] px-7 py-4 text-base font-bold text-white shadow-[0_20px_40px_rgba(255,90,54,0.35)] transition hover:translate-y-[-1px] hover:bg-[#E94724]"
                   >
-                    <span className="relative z-10">Start Free Today</span>
-                    <span className="relative z-10 group-hover:translate-x-1 transition-transform">
-                      →
-                    </span>
-
-                    {/* Hover glow */}
-                    <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition" />
+                    Open Your Dashboard
+                    <ArrowRight className="h-5 w-5" />
                   </Link>
+                )}
+              </div>
 
-                  {/* Secondary CTA */}
-                  <Link
-                    href="/register?role=school"
-                    className="px-8 py-4 rounded-xl font-semibold text-lg border-2 border-[#1F1F1F] text-[#1F1F1F] bg-white
-                   hover:bg-[#1F1F1F] hover:text-white hover:shadow-md
-                   transition-all duration-200 flex items-center justify-center"
+              <ul className="mt-8 grid gap-3 text-sm text-[#4B5563] sm:grid-cols-3 sm:text-base">
+                {highlights.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-3 rounded-2xl border border-white/80 bg-white/70 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.05)] backdrop-blur"
                   >
-                    Hire Qualified Talent
-                  </Link>
-                </>
-              ) : (
-                <Link
-                  href="/dashboard"
-                  className="px-8 py-4 bg-[#FF1E00] text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center"
-                >
-                  Go to Your Dashboard
-                </Link>
-              )}
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-[#FF5A36]" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <dl className="mt-10 grid gap-4 sm:grid-cols-3">
+                <div className="landing-panel rounded-[28px] p-5">
+                  <dt className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+                    Educators
+                  </dt>
+                  <dd className="mt-2 text-4xl font-black tracking-tight text-[#171717]">
+                    500+
+                  </dd>
+                  <p className="mt-2 text-sm text-[#52525B]">
+                    Verified profiles across subjects and grade levels.
+                  </p>
+                </div>
+                <div className="landing-panel rounded-[28px] p-5">
+                  <dt className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+                    Hiring Partners
+                  </dt>
+                  <dd className="mt-2 text-4xl font-black tracking-tight text-[#171717]">
+                    150+
+                  </dd>
+                  <p className="mt-2 text-sm text-[#52525B]">
+                    Schools, NGOs, and families using one shared network.
+                  </p>
+                </div>
+                <div className="landing-panel rounded-[28px] p-5">
+                  <dt className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+                    Placement Success
+                  </dt>
+                  <dd className="mt-2 text-4xl font-black tracking-tight text-[#171717]">
+                    95%
+                  </dd>
+                  <p className="mt-2 text-sm text-[#52525B]">
+                    A smoother path from search to shortlisting and placement.
+                  </p>
+                </div>
+              </dl>
             </div>
 
-            {/* Stats */}
-            <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto lg:mx-0">
-              {/* Stat 1 */}
-              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                <div className="text-4xl font-extrabold text-[#1F1F1F]">
-                  500<span className="text-[#FF1E00]">+</span>
-                </div>
-                <div className="text-gray-600 text-sm mt-2">
-                  Qualified Teachers
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Verified profiles</p>
-              </div>
-
-              {/* Stat 2 */}
-              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                <div className="text-4xl font-extrabold text-[#1F1F1F]">
-                  150<span className="text-[#FF1E00]">+</span>
-                </div>
-                <div className="text-gray-600 text-sm mt-2">Schools & NGOs</div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Nationwide partners
-                </p>
-              </div>
-
-              {/* Stat 3 */}
-              <div className="text-center bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                <div className="text-4xl font-extrabold text-[#1F1F1F]">
-                  95<span className="text-[#FF1E00]">%</span>
-                </div>
-                <div className="text-gray-600 text-sm mt-2">Success Rate</div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Successful placements
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-12 lg:mt-0 lg:w-1/2">
-            <div className="bg-[#F9FAFB] rounded-2xl p-8 border border-gray-200">
-              <div className="grid grid-cols-2 gap-6">
-                {/* For Teachers */}
-                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
-                  <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <GraduationCap className="w-6 h-6 text-[#FF1E00]" />
-                  </div>
-                  <div className="text-lg font-semibold text-[#1F1F1F]">
-                    For Teachers
-                  </div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    Find teaching jobs that match your skills
-                  </div>
-                </div>
-
-                {/* For Schools */}
-                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
-                  <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <School className="w-6 h-6 text-[#FF1E00]" />
-                  </div>
-                  <div className="text-lg font-semibold text-[#1F1F1F]">
-                    For Schools
-                  </div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    Hire verified and experienced educators
-                  </div>
-                </div>
-
-                {/* For Students */}
-                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
-                  <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <BookOpen className="w-6 h-6 text-[#FF1E00]" />
-                  </div>
-                  <div className="text-lg font-semibold text-[#1F1F1F]">
-                    For Students
-                  </div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    Flexible part-time teaching opportunities
-                  </div>
-                </div>
-
-                {/* For Families */}
-                <div className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-[#FF1E00] transition">
-                  <div className="w-12 h-12 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center mb-4">
-                    <Users className="w-6 h-6 text-[#FF1E00]" />
-                  </div>
-                  <div className="text-lg font-semibold text-[#1F1F1F]">
-                    For Families
-                  </div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    Find trusted private tutors for your children
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <section className="mt-24">
-          <h3 className="text-2xl font-bold text-center mb-10">
-            Trusted by Educators Across Ethiopia
-          </h3>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                name: "Abel T.",
-                role: "Math Teacher",
-                text: "I found a job within 2 weeks. This platform changed my life.",
-              },
-              {
-                name: "Bright Future School",
-                role: "School",
-                text: "We hired 3 qualified teachers بسهولة.",
-              },
-            ].map((t, i) => (
-              <div key={i} className="bg-white p-6 rounded-xl shadow">
-                <p className="text-gray-600 mb-4">“{t.text}”</p>
-                <div className="font-semibold">{t.name}</div>
-                <div className="text-sm text-gray-400">{t.role}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-        {/* How It Works */}
-        <section className="mt-32">
-          {/* Header */}
-          <div className="text-center mb-14">
-            <span className="inline-block text-sm font-semibold text-[#FF1E00] bg-[#FF1E00]/10 px-4 py-1 rounded-full mb-4">
-              How It Works
-            </span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-[#1F1F1F] mb-4">
-              Get Started in 3 Simple Steps
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-              A simple and transparent process connecting educators with the
-              right opportunities.
-            </p>
-          </div>
-
-          {/* Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Step 1 */}
-            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
-              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
-                1
-              </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
-                Create Your Profile
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                Teachers and students build detailed profiles including
-                qualifications, subjects, experience, and availability.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
-              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
-                2
-              </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
-                Browse & Apply
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                Schools and organizations post opportunities. Find jobs that
-                match your skills and apply directly.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
-              <div className="absolute -top-6 left-8 w-12 h-12 bg-[#FF1E00] text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md">
-                3
-              </div>
-              <h3 className="text-xl font-semibold text-[#1F1F1F] mt-6 mb-4">
-                Connect & Teach
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                Communicate securely, complete the hiring process, and start
-                making a real impact through teaching.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Benefits */}
-        <section className="mt-32 px-4 sm:px-6 lg:px-0">
-          <div
-            className="bg-gradient-to-r from-[#FF1E00]/5 to-transparent rounded-3xl 
-                  p-8 sm:p-10 lg:p-12 max-w-7xl mx-auto"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              {/* Left Content */}
-              <div>
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1F1F1F] mb-6">
-                  Why Choose AfterSchool?
-                </h2>
-
-                <div className="space-y-6">
-                  {[
-                    {
-                      title: "Verified Profiles",
-                      desc: "All educators are verified with academic credentials",
-                    },
-                    {
-                      title: "Local Focus",
-                      desc: "Designed specifically for Ethiopia’s education needs",
-                    },
-                    {
-                      title: "Secure Communication",
-                      desc: "Built-in messaging with safety features",
-                    },
-                    {
-                      title: "Flexible Payments",
-                      desc: "Local payment options including Chapa and Telebirr",
-                    },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-4">
-                      <div className="w-9 h-9 bg-[#FF1E00]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-[#FF1E00] font-bold">✓</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-[#1F1F1F] text-base">
-                          {item.title}
-                        </h4>
-                        <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                          {item.desc}
-                        </p>
-                      </div>
+            <div className="relative">
+              <div className="landing-panel relative overflow-hidden rounded-[34px] p-5 sm:p-7">
+                <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+                <div className="rounded-[28px] bg-[#171717] p-6 text-white shadow-[0_28px_70px_rgba(15,23,42,0.26)] sm:p-8">
+                  <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">
+                        Live opportunity preview
+                      </p>
+                      <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                        Discover high-fit education roles.
+                      </h2>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/85">
+                      Updated daily
+                    </div>
+                  </div>
 
-              {/* Right Visual Card */}
-              <div className="w-full">
-                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl">
-                  <div
-                    className="aspect-video rounded-xl bg-gradient-to-br from-[#1F1F1F] to-[#2A2A2A] 
-                          flex items-center justify-center"
-                  >
-                    <div className="text-center text-white px-6">
-                      <div className="text-4xl mb-4">🎯</div>
-                      <h3 className="text-2xl font-bold mb-2">Perfect Match</h3>
-                      <p className="text-sm sm:text-base text-white/90">
-                        Our algorithm connects the right educators with the
-                        right opportunities
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-3xl bg-white/[0.06] p-5 ring-1 ring-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FF5A36]/20 text-[#FFB7A7]">
+                          <BriefcaseBusiness className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            Secondary Physics Teacher
+                          </p>
+                          <p className="text-sm text-white/65">
+                            Addis Ababa • Full-time
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm leading-7 text-white/75">
+                        Strong candidate match based on teaching level,
+                        classroom experience, and subject fit.
+                      </p>
+                    </div>
+
+                    <div className="rounded-3xl bg-[#FFF1EC] p-5 text-[#171717]">
+                      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9A3412]">
+                        Faster hiring signal
+                      </p>
+                      <p className="mt-3 text-4xl font-black tracking-tight">
+                        3x
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-[#5B5B67]">
+                        Clearer candidate data helps schools shortlist with
+                        confidence instead of guesswork.
                       </p>
                     </div>
                   </div>
+
+                  <div className="mt-5 grid gap-4">
+                    {audienceCards.slice(0, 3).map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <div
+                          key={item.title}
+                          className="flex items-start gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4"
+                        >
+                          <div className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-white/[0.08] text-[#FFB7A7]">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-semibold text-white">
+                              {item.title}
+                            </h3>
+                            <p className="mt-1 text-sm leading-6 text-white/65">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="absolute -bottom-6 left-6 rounded-3xl border border-white/70 bg-white/90 px-5 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.12)] backdrop-blur sm:left-auto sm:right-8">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#737373]">
+                    Trust signal
+                  </p>
+                  <p className="mt-2 text-lg font-black tracking-tight text-[#171717]">
+                    Teacher-first onboarding
+                  </p>
+                  <p className="mt-1 max-w-[18rem] text-sm text-[#52525B]">
+                    Clear role entry points help each audience understand where
+                    to start immediately.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="mt-32 px-4 sm:px-6 lg:px-0">
-          <div
-            className="relative max-w-7xl mx-auto overflow-hidden rounded-3xl
-                  bg-gradient-to-r from-[#FF1E00] to-[#FF4D00]"
-          >
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none">
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `
-            radial-gradient(circle at 20px 20px, white 2%, transparent 0%),
-            radial-gradient(circle at 80px 80px, white 2%, transparent 0%)
-          `,
-                  backgroundSize: "120px 120px",
-                }}
-              />
+        <section className="px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[34px] border border-white/80 bg-white/80 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] backdrop-blur sm:p-8">
+            <div className="grid gap-4 md:grid-cols-4">
+              {audienceCards.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <article
+                    key={item.title}
+                    className="rounded-[28px] border border-[#1F1F1F]/8 bg-[#FFFDFB] p-6 transition hover:border-[#FF5A36]/25 hover:shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFEEE8] text-[#FF5A36]">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h2 className="mt-5 text-xl font-black tracking-tight text-[#171717]">
+                      For {item.title}
+                    </h2>
+                    <p className="mt-3 text-sm leading-7 text-[#5B5B67]">
+                      {item.description}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#C63E21]">
+                How it works
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-[#171717] sm:text-5xl">
+                A cleaner path from profile to placement.
+              </h2>
+              <p className="mt-4 text-base leading-8 text-[#5B5B67] sm:text-lg">
+                The experience now reads like a product with momentum instead of
+                a stack of unrelated sections.
+              </p>
             </div>
 
-            {/* Content */}
-            <div className="relative z-10 px-6 sm:px-10 lg:px-16 py-14 sm:py-16 text-center">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-6 leading-tight">
-                Ready to Transform Education in Ethiopia?
-              </h2>
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+              {steps.map((step, index) => (
+                <article
+                  key={step.title}
+                  className="landing-panel rounded-[30px] p-7 sm:p-8"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#171717] text-xl font-black text-white shadow-[0_16px_36px_rgba(23,23,23,0.2)]">
+                    {index + 1}
+                  </div>
+                  <h3 className="mt-6 text-2xl font-black tracking-tight text-[#171717]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-[#5B5B67] sm:text-base">
+                    {step.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
 
-              <p className="text-white/90 text-base sm:text-lg lg:text-xl mb-10 max-w-3xl mx-auto">
-                Join hundreds of educators, students, and organizations shaping
-                Ethiopia&apos;s educational future—together.
+        <section className="px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.88fr)]">
+            <div className="rounded-[34px] bg-[#171717] p-8 text-white shadow-[0_30px_80px_rgba(15,23,42,0.2)] sm:p-10">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#FFB7A7]">
+                Why teams choose AfterSchool
+              </p>
+              <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
+                Built to feel trustworthy, direct, and conversion-ready.
+              </h2>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-white/72 sm:text-lg">
+                Better landing pages reduce hesitation. This one now presents
+                clearer hierarchy, stronger trust signals, and more focused
+                calls to action for each audience.
               </p>
 
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href={isLoggedIn ? "/dashboard" : "/register"}
-                  className="inline-flex items-center justify-center px-10 py-4
-                     bg-white text-[#FF1E00] rounded-xl font-bold text-lg
-                     shadow-xl hover:shadow-2xl hover:-translate-y-0.5
-                     transition-all duration-200"
-                >
-                  {isLoggedIn ? "Go to Dashboard" : "Start Free Today"}
-                </Link>
+              <div className="mt-8 grid gap-4">
+                {featurePoints.map((item) => {
+                  const Icon = item.icon;
 
-                <Link
-                  href="/about"
-                  className="inline-flex items-center justify-center px-10 py-4
-                     bg-white/10 text-white border border-white/30 rounded-xl
-                     font-medium text-lg hover:bg-white/20
-                     transition-colors"
+                  return (
+                    <div
+                      key={item.title}
+                      className="flex items-start gap-4 rounded-[26px] border border-white/10 bg-white/[0.04] p-5"
+                    >
+                      <div className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-white/[0.08] text-[#FFB7A7]">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">
+                          {item.title}
+                        </h3>
+                        <p className="mt-2 text-sm leading-7 text-white/68 sm:text-base">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <aside className="landing-panel rounded-[34px] p-6 sm:p-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#737373]">
+                Weekly activity snapshot
+              </p>
+              <div className="mt-6 space-y-4">
+                <div className="rounded-[24px] bg-[#FFF3ED] p-5">
+                  <p className="text-sm font-semibold text-[#9A3412]">
+                    Applications reviewed
+                  </p>
+                  <p className="mt-2 text-4xl font-black tracking-tight text-[#171717]">
+                    128
+                  </p>
+                  <div className="mt-4 h-3 rounded-full bg-white/80">
+                    <div className="h-3 w-[78%] rounded-full bg-[#FF5A36]" />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-[24px] border border-[#1F1F1F]/8 bg-white p-5">
+                    <p className="text-sm font-semibold text-[#737373]">
+                      Response time
+                    </p>
+                    <p className="mt-2 text-3xl font-black tracking-tight text-[#171717]">
+                      24h
+                    </p>
+                  </div>
+                  <div className="rounded-[24px] border border-[#1F1F1F]/8 bg-white p-5">
+                    <p className="text-sm font-semibold text-[#737373]">
+                      Active schools
+                    </p>
+                    <p className="mt-2 text-3xl font-black tracking-tight text-[#171717]">
+                      40+
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-[24px] border border-dashed border-[#FF5A36]/30 bg-[#FFFDFB] p-5">
+                  <p className="text-sm leading-7 text-[#5B5B67]">
+                    The right-side panel gives the hero a focal point and helps
+                    the page feel like a product, not just a brochure.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#C63E21]">
+                  Trusted by educators
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-[#171717] sm:text-5xl">
+                  Social proof that feels grounded and credible.
+                </h2>
+              </div>
+              <Link
+                href="/jobs"
+                className="inline-flex items-center gap-2 self-start rounded-full border border-[#1F1F1F]/10 bg-white px-5 py-3 text-sm font-semibold text-[#1F1F1F] shadow-[0_14px_32px_rgba(15,23,42,0.06)] transition hover:text-[#C63E21]"
+              >
+                Explore jobs
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+              {testimonials.map((item) => (
+                <blockquote
+                  key={item.name}
+                  className="landing-panel rounded-[30px] p-7"
                 >
-                  Learn More
-                </Link>
+                  <p className="text-base leading-8 text-[#3F3F46] sm:text-lg">
+                    &ldquo;{item.quote}&rdquo;
+                  </p>
+                  <footer className="mt-6 border-t border-[#1F1F1F]/8 pt-5">
+                    <p className="text-lg font-black tracking-tight text-[#171717]">
+                      {item.name}
+                    </p>
+                    <p className="text-sm text-[#737373]">{item.role}</p>
+                  </footer>
+                </blockquote>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 pb-24 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl overflow-hidden rounded-[40px] bg-[linear-gradient(135deg,#171717_0%,#2A1611_50%,#FF5A36_100%)] px-6 py-12 text-white shadow-[0_36px_90px_rgba(23,23,23,0.22)] sm:px-10 sm:py-16 lg:px-14">
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/70">
+                  Ready to convert more visitors
+                </p>
+                <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">
+                  Give teachers and hiring teams a homepage that feels confident
+                  from the first screen.
+                </h2>
+                <p className="mt-5 max-w-2xl text-base leading-8 text-white/78 sm:text-lg">
+                  Stronger visuals, cleaner content hierarchy, and better
+                  responsive behavior make the product feel more serious and
+                  more trustworthy.
+                </p>
               </div>
 
-              {/* Trust Note */}
-              <p className="text-white/70 text-sm mt-6">
-                No credit card required • Free for educators to join
-              </p>
+              <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
+                <Link
+                  href={isLoggedIn ? "/dashboard" : "/register"}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-4 text-base font-bold text-[#171717] shadow-[0_18px_40px_rgba(255,255,255,0.18)] transition hover:bg-[#FFF3ED]"
+                >
+                  {isLoggedIn ? "Go to dashboard" : "Create your account"}
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <Link
+                  href="/jobs"
+                  className="inline-flex items-center justify-center rounded-full border border-white/25 px-7 py-4 text-base font-bold text-white transition hover:bg-white/10"
+                >
+                  Browse open jobs
+                </Link>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[#1F1F1F] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-          {/* Top Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-            {/* Brand */}
-            <div className="lg:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-[#FF1E00] rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">AS</span>
-                </div>
-                <div>
-                  <span className="text-2xl font-bold">
-                    After<span className="text-[#FF1E00]">School</span>
-                  </span>
-                  <p className="text-gray-400 text-sm">
-                    Ethiopia&apos;s Education Network
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
-                Connecting Ethiopia&apos;s education ecosystem through
-                technology, opportunity, and innovation.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 lg:col-span-3">
-              {/* Platform */}
-              <div>
-                <h4 className="font-semibold text-white mb-4">Platform</h4>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <Link
-                      href="/find-jobs"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Find Jobs
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/find-tutors"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Find Tutors
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/pricing"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Pricing
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Company */}
-              <div>
-                <h4 className="font-semibold text-white mb-4">Company</h4>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <Link
-                      href="/about"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      About Us
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/contact"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Contact
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/privacy"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Privacy Policy
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Support */}
-              <div>
-                <h4 className="font-semibold text-white mb-4">Support</h4>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <Link
-                      href="/help"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Help Center
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/faq"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      FAQ
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/community"
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      Community
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+      <footer className="relative z-10 border-t border-[#1F1F1F]/8 px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 text-sm text-[#5B5B67] sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-base font-black tracking-tight text-[#171717]">
+              After<span className="text-[#FF5A36]">School</span>
+            </p>
+            <p className="mt-1">
+              Connecting Ethiopia&apos;s education ecosystem with more clarity
+              and speed.
+            </p>
           </div>
 
-          {/* Bottom Bar */}
-          <div className="border-t border-gray-800 mt-12 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-gray-400 text-sm text-center sm:text-left">
-              © {new Date().getFullYear()} AfterSchool Ethiopia. All rights
-              reserved.
-            </p>
-
-            <div className="flex items-center gap-6">
-              <span className="text-gray-400 text-sm">
-                Addis Ababa, Ethiopia
-              </span>
-
-              {/* Social Icons */}
-              <div className="flex gap-4 text-lg">
-                <a
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  📘
-                </a>
-                <a
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  🐦
-                </a>
-                <a
-                  href="#"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  📷
-                </a>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              href="/jobs"
+              className="font-semibold text-[#1F1F1F] transition hover:text-[#C63E21]"
+            >
+              Jobs
+            </Link>
+            {!isLoggedIn && (
+              <Link
+                href="/login"
+                className="font-semibold text-[#1F1F1F] transition hover:text-[#C63E21]"
+              >
+                Sign In
+              </Link>
+            )}
+            <Link
+              href={isLoggedIn ? "/dashboard" : "/register"}
+              className="font-semibold text-[#1F1F1F] transition hover:text-[#C63E21]"
+            >
+              {isLoggedIn ? "Dashboard" : "Get Started"}
+            </Link>
           </div>
         </div>
       </footer>
