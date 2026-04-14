@@ -1,71 +1,67 @@
-// app/admin/layout.js
-"use client";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+async function requireAdmin() {
+  const supabase = createClient();
 
-export default function AdminLayout({ children }) {
-  const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    async function checkAdmin() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          router.push("/login");
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (profile?.role !== "admin") {
-          router.push("/dashboard");
-          return;
-        }
-
-        setIsAdmin(true);
-      } catch (error) {
-        console.error("Admin check error:", error);
-        router.push("/dashboard");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    checkAdmin();
-  }, [router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Verifying admin access...</div>
-      </div>
-    );
+  if (!user) {
+    redirect("/login");
   }
 
-  if (!isAdmin) {
-    return null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "admin") {
+    redirect("/dashboard");
   }
+}
+
+export default async function AdminLayout({ children }) {
+  await requireAdmin();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-8 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage AfterSchool platform</p>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Console</h1>
+            <p className="text-sm text-gray-600">
+              Dedicated management area for users and subscriptions.
+            </p>
+          </div>
+
+          <nav className="flex flex-wrap gap-2">
+            <Link
+              href="/admin"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+            >
+              Overview
+            </Link>
+            <Link
+              href="/admin/users"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+            >
+              Users
+            </Link>
+            <Link
+              href="/admin/subscriptions"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+            >
+              Subscriptions
+            </Link>
+          </nav>
         </div>
-      </div>
-      <main className="p-8">{children}</main>
+      </header>
+
+      <main className="mx-auto max-w-7xl p-6">{children}</main>
     </div>
   );
 }
