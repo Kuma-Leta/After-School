@@ -26,7 +26,6 @@ export default function LoginPage() {
     }
     return redirect;
   }, [searchParams]);
-  adm;
 
   const getRoleAwareRedirect = useCallback(
     async (userId) => {

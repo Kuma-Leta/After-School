@@ -9,10 +9,10 @@ export const ROLES = {
 };
 
 export const ROLE_LABELS = {
-  [ROLES.TEACHER]: "Teacher",
-  [ROLES.STUDENT]: "University Student",
-  [ROLES.FAMILY]: "Family",
-  [ROLES.SCHOOL]: "School",
-  [ROLES.NGO]: "Organization",
+  [ROLES.TEACHER]: "Tutor (Teacher)",
+  [ROLES.STUDENT]: "Tutor (University Student)",
+  [ROLES.FAMILY]: "Hiring Partner (Family)",
+  [ROLES.SCHOOL]: "Hiring Partner (School)",
+  [ROLES.NGO]: "Hiring Partner (Organization)",
   [ROLES.ADMIN]: "Administrator",
 };

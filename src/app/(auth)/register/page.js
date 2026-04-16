@@ -6,22 +6,39 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
 const ROLES = [
-  { id: "teacher", label: "Teacher/Tutor", description: "Find teaching jobs" },
+  {
+    id: "teacher",
+    actor: "Tutor",
+    label: "Teacher Tutor",
+    description:
+      "Use your free time after school to earn by tutoring learners.",
+  },
   {
     id: "student",
-    label: "University Student",
-    description: "Find part-time opportunities",
+    actor: "Tutor",
+    label: "University Student Tutor",
+    description:
+      "Find flexible tutoring opportunities and make income while studying.",
   },
-  { id: "school", label: "School", description: "Hire tutors and assistants" },
+  {
+    id: "school",
+    actor: "Hiring Partner",
+    label: "School",
+    description: "Hire trusted tutors and teaching support for your learners.",
+  },
   {
     id: "ngo",
-    label: "Organization/NGO",
-    description: "Find educational staff",
+    actor: "Hiring Partner",
+    label: "Education Organization / NGO",
+    description:
+      "Find tutors and education staff for your programs and projects.",
   },
   {
     id: "family",
-    label: "Family/Parent",
-    description: "Find tutors for your children",
+    actor: "Hiring Partner",
+    label: "Family",
+    description:
+      "Book qualified tutors for home support, homework, and exam prep.",
   },
 ];
 
@@ -316,9 +333,13 @@ export default function RegisterPage() {
 
         {step === 1 ? (
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-4">
-              Choose Your Role
+            <h3 className="text-lg font-semibold text-[#1F1F1F] mb-1">
+              Choose how you use AfterSchool
             </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              Tutor roles are for people who teach. Hiring Partner roles are for
+              families and organizations hiring tutors.
+            </p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -351,6 +372,9 @@ export default function RegisterPage() {
                       : "border-gray-200 hover:border-[#FF1E00]/50 hover:bg-gray-50"
                   }`}
                 >
+                  <div className="mb-1 inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                    {role.actor}
+                  </div>
                   <div className="font-medium text-[#1F1F1F]">{role.label}</div>
                   <div className="text-sm text-gray-600 mt-1">
                     {role.description}
@@ -429,6 +453,9 @@ export default function RegisterPage() {
                   <div className="font-medium text-[#1F1F1F]">
                     {ROLES.find((r) => r.id === selectedRole)?.label}
                   </div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {ROLES.find((r) => r.id === selectedRole)?.actor}
+                  </div>
                   <div className="text-sm text-gray-600">
                     {ROLES.find((r) => r.id === selectedRole)?.description}
                   </div>
@@ -494,7 +521,7 @@ export default function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
                     errors.full_name ? "border-red-300" : "border-gray-300"
                   }`}
-                  placeholder="John Doe"
+                  placeholder="Your full name"
                 />
                 {errors.full_name && (
                   <p className="mt-1 text-xs text-red-600">
@@ -600,10 +627,10 @@ export default function RegisterPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Creating Account...
+                    Creating your account...
                   </>
                 ) : (
-                  "Create Account"
+                  "Create My Account"
                 )}
               </button>
             </div>
