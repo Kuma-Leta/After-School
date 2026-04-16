@@ -2,6 +2,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
+function getSafeRedirectTarget(request) {
+  const redirect = request.nextUrl.searchParams.get("redirect");
+
+  if (!redirect || !redirect.startsWith("/")) {
+    return null;
+  }
+
+  return redirect;
+}
+
 export async function middleware(request) {
   let response = NextResponse.next();
 
@@ -89,7 +99,8 @@ export async function middleware(request) {
         request.nextUrl.pathname,
       )
     ) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const redirectTarget = getSafeRedirectTarget(request) || "/dashboard";
+      return NextResponse.redirect(new URL(redirectTarget, request.url));
     }
     return response;
   }
@@ -106,7 +117,10 @@ export async function middleware(request) {
   if (isProtectedRoute && !user) {
     console.log("Middleware - No user, redirecting to login");
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    redirectUrl.searchParams.set(
+      "redirect",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    );
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -120,7 +134,8 @@ export async function middleware(request) {
     console.log(
       "Middleware - User logged in, redirecting from auth page to dashboard",
     );
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const redirectTarget = getSafeRedirectTarget(request) || "/dashboard";
+    return NextResponse.redirect(new URL(redirectTarget, request.url));
   }
 
   // Admin route protection
@@ -137,7 +152,7 @@ export async function middleware(request) {
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
 
-      if (profile?.role !== "admin") {
+      if ((profile?.role || "").toLowerCase() !== "admin") {
         console.log("Middleware - Non-admin trying to access admin area");
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }

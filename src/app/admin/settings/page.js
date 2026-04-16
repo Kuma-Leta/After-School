@@ -2,6 +2,6 @@
 
 import UniversalSettings from "@/components/settings/UniversalSettings";
 
-export default function SettingsPage() {
+export default function AdminSettingsPage() {
   return <UniversalSettings />;
 }

@@ -224,11 +224,11 @@ export default function DashboardLayout({ children }) {
       ];
     }
 
-    if (userRole === "admin") {
+    if ((userRole || "").toLowerCase() === "admin") {
       return [
         {
-          href: "/admin/dashboard",
-          label: "Dashboard",
+          href: "/admin",
+          label: "Overview",
           icon: "📊",
           description: "Admin overview",
         },
@@ -239,22 +239,10 @@ export default function DashboardLayout({ children }) {
           description: "Manage all users",
         },
         {
-          href: "/admin/verifications",
-          label: "Verifications",
-          icon: "✅",
-          description: "Approve profiles",
-        },
-        {
-          href: "/admin/transactions",
-          label: "Transactions",
-          icon: "💰",
-          description: "View payments",
-        },
-        {
-          href: "/admin/reports",
-          label: "Reports",
-          icon: "📈",
-          description: "Analytics & insights",
+          href: "/admin/subscriptions",
+          label: "Subscriptions",
+          icon: "💳",
+          description: "Manage subscriptions",
         },
         {
           href: "/admin/settings",

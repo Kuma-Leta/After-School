@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  User,
-  Bell,
-  Shield,
-  CreditCard,
-  Lock,
-  Settings as SettingsIcon,
-} from "lucide-react";
+import { User, Bell, Shield, CreditCard, Lock } from "lucide-react";
 
-const tabs = [
+const defaultTabs = [
   { id: "profile", label: "Profile", icon: User },
   { id: "account", label: "Account", icon: Lock },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -21,6 +14,7 @@ export default function SettingsSidebar({
   activeTab,
   onTabChange,
   subscription,
+  tabs = defaultTabs,
 }) {
   return (
     <div className="md:w-64 space-y-1">

@@ -10,7 +10,7 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/login?redirect=/admin");
   }
 
   const { data: profile } = await supabase
@@ -19,7 +19,7 @@ async function requireAdmin() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") {
+  if ((profile?.role || "").toLowerCase() !== "admin") {
     redirect("/dashboard");
   }
 }
@@ -56,6 +56,12 @@ export default async function AdminLayout({ children }) {
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
             >
               Subscriptions
+            </Link>
+            <Link
+              href="/admin/settings"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+            >
+              Settings
             </Link>
           </nav>
         </div>

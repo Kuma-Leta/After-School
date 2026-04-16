@@ -60,7 +60,7 @@ export async function requireAdminRequest() {
     .eq("id", user.id)
     .single();
 
-  if (profileError || profile?.role !== "admin") {
+  if (profileError || (profile?.role || "").toLowerCase() !== "admin") {
     return {
       ok: false,
       status: 403,
