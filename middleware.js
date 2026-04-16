@@ -1,21 +1,14 @@
-// middleware.js
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 function getSafeRedirectTarget(request) {
   const redirect = request.nextUrl.searchParams.get("redirect");
-
-  if (!redirect || !redirect.startsWith("/")) {
-    return null;
-  }
-
+  if (!redirect || !redirect.startsWith("/")) return null;
   return redirect;
 }
 
 export async function middleware(request) {
   let response = NextResponse.next();
-
-  // Create Supabase client for middleware
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -25,45 +18,22 @@ export async function middleware(request) {
           return request.cookies.get(name)?.value;
         },
         set(name, value, options) {
-          // Update request cookies for the current request
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          // Update response cookies
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          request.cookies.set({ name, value, ...options });
+          response.cookies.set({ name, value, ...options });
         },
         remove(name, options) {
-          // Update request cookies for the current request
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          // Update response cookies
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+          request.cookies.set({ name, value: "", ...options });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     },
   );
 
-  // IMPORTANT: Refresh session if expired - required for Server Components
   const {
     data: { session },
-    error,
   } = await supabase.auth.getSession();
-
-  console.log("Middleware - Session:", session?.user?.email);
-  console.log("Middleware - Path:", request.nextUrl.pathname);
+  const user = session?.user;
+  const path = request.nextUrl.pathname;
 
   // Public routes (no auth required)
   const publicRoutes = [
@@ -80,85 +50,71 @@ export async function middleware(request) {
     "/api/auth",
     "/api/webhooks",
   ];
-  //https://esgkhewgfdtqisimvhwk.supabase.co/auth/v1/callback
   const isPublicRoute = publicRoutes.some(
-    (route) =>
-      request.nextUrl.pathname === route ||
-      request.nextUrl.pathname.startsWith(`${route}/`),
+    (route) => path === route || path.startsWith(`${route}/`),
   );
+  const isApiRoute = path.startsWith("/api/");
 
-  // Check if it's an API route
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
-
-  // Allow API routes and public routes to pass through
+  // Public routes: allow, but redirect if logged in user visits auth pages
   if (isApiRoute || isPublicRoute) {
-    // If user is logged in and trying to access login/register, redirect to dashboard
     if (
-      session?.user &&
+      user &&
       ["/login", "/register", "/forgot-password", "/reset-password"].includes(
-        request.nextUrl.pathname,
+        path,
       )
     ) {
-      const redirectTarget = getSafeRedirectTarget(request) || "/dashboard";
-      return NextResponse.redirect(new URL(redirectTarget, request.url));
+      const target = getSafeRedirectTarget(request) || "/dashboard";
+      return NextResponse.redirect(new URL(target, request.url));
     }
     return response;
   }
 
-  // Check if user is authenticated
-  const user = session?.user;
-
-  // Protected routes
-  const isProtectedRoute =
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/admin");
-
-  // Redirect to login if accessing protected route without auth
-  if (isProtectedRoute && !user) {
-    console.log("Middleware - No user, redirecting to login");
+  // --- Protected routes: require login ---
+  if (!user) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set(
       "redirect",
-      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+      `${path}${request.nextUrl.search}`,
     );
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If user exists and is trying to access auth pages, redirect to dashboard
-  if (
-    user &&
-    ["/login", "/register", "/forgot-password", "/reset-password"].includes(
-      request.nextUrl.pathname,
-    )
-  ) {
-    console.log(
-      "Middleware - User logged in, redirecting from auth page to dashboard",
-    );
-    const redirectTarget = getSafeRedirectTarget(request) || "/dashboard";
-    return NextResponse.redirect(new URL(redirectTarget, request.url));
-  }
-
-  // Admin route protection
-  if (request.nextUrl.pathname.startsWith("/admin") && user) {
+  // --- Admin route protection: block non-admins with 403 (no redirect loop) ---
+  if (path.startsWith("/admin")) {
     try {
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError) {
-        console.error("Middleware - Profile fetch error:", profileError);
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+      if (profile?.role?.toLowerCase() !== "admin") {
+        console.warn(`Forbidden: ${user.email} tried to access /admin`);
+        return new NextResponse("Forbidden – Admin access required", {
+          status: 403,
+        });
       }
+    } catch (err) {
+      console.error("Admin check error:", err);
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+  }
 
-      if ((profile?.role || "").toLowerCase() !== "admin") {
-        console.log("Middleware - Non-admin trying to access admin area");
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+  // --- Redirect admins from /dashboard to /admin (optional, but safe) ---
+  if (path.startsWith("/dashboard") && user) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.role?.toLowerCase() === "admin") {
+        console.log(`Admin on /dashboard → redirect to /admin`);
+        return NextResponse.redirect(new URL("/admin", request.url));
       }
-    } catch (error) {
-      console.error("Middleware - Admin check error:", error);
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } catch (err) {
+      // ignore – just let them see dashboard
     }
   }
 
@@ -166,15 +122,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - auth callback routes
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public|auth).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|auth).*)"],
 };

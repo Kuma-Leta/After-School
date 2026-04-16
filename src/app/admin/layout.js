@@ -9,14 +9,23 @@ async function requireAdmin() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  let currentUser = user;
+
+  if (!currentUser) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    currentUser = session?.user ?? null;
+  }
+
+  if (!currentUser) {
     redirect("/login?redirect=/admin");
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", user.id)
+    .eq("id", currentUser.id)
     .single();
 
   if ((profile?.role || "").toLowerCase() !== "admin") {

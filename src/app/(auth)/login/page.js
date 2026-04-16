@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -19,52 +19,68 @@ export default function LoginPage() {
 
   const authCheckRef = useRef(false);
 
+  const getSafeRedirectTarget = useCallback(() => {
+    const redirect = searchParams.get("redirect");
+    if (!redirect || !redirect.startsWith("/")) {
+      return null;
+    }
+    return redirect;
+  }, [searchParams]);
+  adm;
+
+  const getRoleAwareRedirect = useCallback(
+    async (userId) => {
+      const requestedRedirect = getSafeRedirectTarget();
+      if (requestedRedirect) return requestedRedirect;
+
+      if (!userId) return "/dashboard";
+
+      // Retry once in case of temporary failure
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .maybeSingle();
+
+          if (!error && profile) {
+            return profile.role?.toLowerCase() === "admin"
+              ? "/admin"
+              : "/dashboard";
+          }
+          if (attempt === 1)
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (err) {
+          console.error(`Profile fetch attempt ${attempt} failed`, err);
+          if (attempt === 2) {
+            // Last resort – go to dashboard but without triggering loop
+            return "/dashboard?error=profile_unavailable";
+          }
+        }
+      }
+      return "/dashboard";
+    },
+    [getSafeRedirectTarget],
+  );
+
   // Check if user is already logged in
+  // In the auth-check useEffect: remove router.refresh() after replace
   useEffect(() => {
     if (authCheckRef.current) return;
     authCheckRef.current = true;
-
     async function checkAuth() {
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          setAuthChecked(true);
-          return;
-        }
-
-        if (session) {
-          // Get redirect URL from query params or default to dashboard
-          const redirectTo = searchParams.get("redirect") || "/dashboard";
-          console.log("Already logged in, redirecting to:", redirectTo);
-
-          // Try multiple approaches to ensure redirect works
-          try {
-            // First try replace
-            router.replace(redirectTo);
-            // Force a refresh to update middleware/auth state
-            setTimeout(() => {
-              router.refresh();
-            }, 100);
-          } catch (routerError) {
-            console.error("Router error:", routerError);
-            // Fallback to push
-            router.push(redirectTo);
-          }
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-      } finally {
-        setAuthChecked(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        const redirectTo = await getRoleAwareRedirect(session.user.id);
+        router.replace(redirectTo); // no refresh()
       }
+      setAuthChecked(true);
     }
-
     checkAuth();
-  }, [router, searchParams]); // Add searchParams to dependencies
+  }, [router, getRoleAwareRedirect]);
 
   const handleChange = (e) => {
     setFormData({
@@ -78,7 +94,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword(
         {
@@ -86,48 +101,18 @@ export default function LoginPage() {
           password: formData.password,
         },
       );
+      if (authError) throw authError;
 
-      if (authError) {
-        // Handle specific errors
-        if (authError.message.includes("Invalid login credentials")) {
-          throw new Error("Invalid email or password. Please try again.");
-        } else if (authError.message.includes("Email not confirmed")) {
-          throw new Error("Please confirm your email before logging in.");
-        } else if (authError.message.includes("rate limit")) {
-          throw new Error(
-            "Too many attempts. Please try again in a few minutes.",
-          );
-        } else {
-          throw authError;
-        }
-      }
-
-      console.log("Login successful, user:", data.user?.email);
-
-      // IMPORTANT: Wait a moment for session to be established
       await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Verify session was created
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Session not created. Please try again.");
-      }
+      if (!session) throw new Error("Session not created");
 
-      // Get redirect URL
-      const redirectTo = searchParams.get("redirect") || "/jobs";
-      console.log("Redirecting to:", redirectTo);
-
-      // Force hard navigation to ensure middleware runs
-      window.location.href = redirectTo;
-
-      // Alternative: Use router with refresh
-      // router.replace(redirectTo);
-      // router.refresh();
+      const redirectTo = await getRoleAwareRedirect(session.user.id);
+      window.location.href = redirectTo; // hard navigation
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err.message || "Login failed. Please check your credentials.");
+      setError(err.message);
       setLoading(false);
     }
   };

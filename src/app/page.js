@@ -1,6 +1,6 @@
 // app/page.js
 import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 import {
   ArrowRight,
   BookOpen,
@@ -16,11 +16,27 @@ import {
 } from "lucide-react";
 
 export default async function Home() {
+  const supabase = await createClient();
+
   // Check if user is logged in to show appropriate CTAs
   const {
     data: { session },
   } = await supabase.auth.getSession();
   const isLoggedIn = !!session;
+
+  let dashboardHref = "/dashboard";
+
+  if (session?.user?.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    if ((profile?.role || "").toLowerCase() === "admin") {
+      dashboardHref = "/admin";
+    }
+  }
 
   const audienceCards = [
     {
@@ -148,7 +164,7 @@ export default async function Home() {
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {isLoggedIn ? (
               <Link
-                href="/dashboard"
+                href={dashboardHref}
                 className="inline-flex items-center justify-center rounded-full border border-[#1F1F1F]/10 bg-[#1F1F1F] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
               >
                 Go to Dashboard
@@ -212,7 +228,7 @@ export default async function Home() {
                   </>
                 ) : (
                   <Link
-                    href="/dashboard"
+                    href={dashboardHref}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#FF5A36] px-7 py-4 text-base font-bold text-white shadow-[0_20px_40px_rgba(255,90,54,0.35)] transition hover:translate-y-[-1px] hover:bg-[#E94724]"
                   >
                     Open Your Dashboard
