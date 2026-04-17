@@ -6,10 +6,13 @@ import { supabase } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 
-export default function JobCard({ job, onClick }) {
+export default function JobCard({ job, onClick, viewerRole }) {
   const router = useRouter();
   const { trialStatus } = useTrialStatus(); // note: we don't need refreshTrialStatus here unless you add payment modal later
   // Removed unused applyingJob state
+  const isHiringPartnerRole = ["school", "family", "ngo"].includes(
+    (viewerRole || "").toLowerCase(),
+  );
 
   // Guard against missing job prop
   if (!job) {
@@ -296,21 +299,25 @@ export default function JobCard({ job, onClick }) {
             >
               View Details
             </button>
-            <button
-              onClick={handleApply}
-              disabled={trialStatus.loading || daysLeft <= 0 || !job.is_active}
-              className={`px-4 py-2 font-medium rounded-lg ${
-                trialStatus.loading || daysLeft <= 0 || !job.is_active
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
-              }`}
-            >
-              {trialStatus.loading
-                ? "Checking..."
-                : daysLeft <= 0 || !job.is_active
-                  ? "Closed"
-                  : "Apply Now"}
-            </button>
+            {!isHiringPartnerRole && (
+              <button
+                onClick={handleApply}
+                disabled={
+                  trialStatus.loading || daysLeft <= 0 || !job.is_active
+                }
+                className={`px-4 py-2 font-medium rounded-lg ${
+                  trialStatus.loading || daysLeft <= 0 || !job.is_active
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
+                }`}
+              >
+                {trialStatus.loading
+                  ? "Checking..."
+                  : daysLeft <= 0 || !job.is_active
+                    ? "Closed"
+                    : "Apply Now"}
+              </button>
+            )}
           </div>
         </div>
       </div>

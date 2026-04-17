@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 // Inside the JobDetailModal component, update the Apply button logic:
-export default function JobDetailModal({ job, onClose }) {
+export default function JobDetailModal({ job, onClose, viewerRole }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [hasApplied, setHasApplied] = useState(false);
+  const [userRole, setUserRole] = useState((viewerRole || "").toLowerCase());
 
   // Fix: Add the missing handleBackdropClick function
   const handleBackdropClick = (e) => {
@@ -19,6 +20,38 @@ export default function JobDetailModal({ job, onClose }) {
   };
 
   useEffect(() => {
+    const checkUserAndApplication = async () => {
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        setUser(authUser);
+
+        if (authUser) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", authUser.id)
+            .maybeSingle();
+
+          if (profile?.role) {
+            setUserRole(profile.role.toLowerCase());
+          }
+
+          const { data: existingApplication } = await supabase
+            .from("applications")
+            .select("id")
+            .eq("job_id", job.id)
+            .eq("applicant_id", authUser.id)
+            .single();
+
+          setHasApplied(!!existingApplication);
+        }
+      } catch (error) {
+        console.error("Error checking application:", error);
+      }
+    };
+
     checkUserAndApplication();
   }, [job.id]);
 
@@ -36,29 +69,12 @@ export default function JobDetailModal({ job, onClose }) {
     };
   }, [onClose]);
 
-  const checkUserAndApplication = async () => {
-    try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      setUser(authUser);
-
-      if (authUser) {
-        const { data: existingApplication } = await supabase
-          .from("applications")
-          .select("id")
-          .eq("job_id", job.id)
-          .eq("applicant_id", authUser.id)
-          .single();
-
-        setHasApplied(!!existingApplication);
-      }
-    } catch (error) {
-      console.error("Error checking application:", error);
-    }
-  };
-
   const handleApply = async () => {
+    const normalizedRole = (userRole || viewerRole || "").toLowerCase();
+    if (["school", "family", "ngo"].includes(normalizedRole)) {
+      return;
+    }
+
     if (!user) {
       router.push(`/login?redirect=/jobs/${job.id}/apply`);
       return;
@@ -95,6 +111,9 @@ export default function JobDetailModal({ job, onClose }) {
           (1000 * 60 * 60 * 24),
       )
     : 0;
+  const isHiringPartnerRole = ["school", "family", "ngo"].includes(
+    (userRole || viewerRole || "").toLowerCase(),
+  );
 
   return (
     <div
@@ -358,30 +377,34 @@ export default function JobDetailModal({ job, onClose }) {
               </div>
 
               {/* Apply Button */}
-              <button
-                onClick={handleApply}
-                disabled={daysLeft <= 0 || !job.is_active || hasApplied}
-                className={`w-full py-3 text-white rounded-lg font-bold text-lg shadow-lg ${
-                  daysLeft <= 0 || !job.is_active
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : hasApplied
-                      ? "bg-yellow-500 hover:bg-yellow-600"
-                      : "bg-[#FF1E00] hover:bg-[#E01B00]"
-                }`}
-              >
-                {hasApplied
-                  ? "View Application"
-                  : daysLeft <= 0 || !job.is_active
-                    ? "Closed for Applications"
-                    : "Apply for this Job"}
-              </button>
-              <div className="text-center mt-4 text-sm text-gray-600">
-                {hasApplied
-                  ? "You've already applied to this position"
-                  : daysLeft > 0
-                    ? `Apply before ${new Date(job.application_deadline).toLocaleDateString()}`
-                    : "Application deadline has passed"}
-              </div>
+              {!isHiringPartnerRole && (
+                <>
+                  <button
+                    onClick={handleApply}
+                    disabled={daysLeft <= 0 || !job.is_active || hasApplied}
+                    className={`w-full py-3 text-white rounded-lg font-bold text-lg shadow-lg ${
+                      daysLeft <= 0 || !job.is_active
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : hasApplied
+                          ? "bg-yellow-500 hover:bg-yellow-600"
+                          : "bg-[#FF1E00] hover:bg-[#E01B00]"
+                    }`}
+                  >
+                    {hasApplied
+                      ? "View Application"
+                      : daysLeft <= 0 || !job.is_active
+                        ? "Closed for Applications"
+                        : "Apply for this Job"}
+                  </button>
+                  <div className="text-center mt-4 text-sm text-gray-600">
+                    {hasApplied
+                      ? "You've already applied to this position"
+                      : daysLeft > 0
+                        ? `Apply before ${new Date(job.application_deadline).toLocaleDateString()}`
+                        : "Application deadline has passed"}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

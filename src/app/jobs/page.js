@@ -14,6 +14,7 @@ export default function HomePage() {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewerRole, setViewerRole] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,69 +29,10 @@ export default function HomePage() {
 
   useEffect(() => {
     loadJobs();
+    loadViewerRole();
   }, []);
 
   useEffect(() => {
-    filterJobs();
-  }, [jobs, filters, searchQuery]);
-
-  async function loadJobs() {
-    try {
-      setLoading(true);
-      const { data: jobsData, error: jobsError } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-
-      if (jobsError) {
-        console.error("Error fetching jobs:", jobsError);
-        setFilteredJobs([]);
-        return;
-      }
-
-      // Enrich with organization profiles
-      const jobsWithOrganizations = await Promise.all(
-        (jobsData || []).map(async (job) => {
-          let organizationProfile = null;
-          if (job.organization_id) {
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("full_name, role, location, phone")
-              .eq("id", job.organization_id)
-              .single();
-            organizationProfile = profileData;
-          }
-          return {
-            ...job,
-            organizations: {
-              org_name: organizationProfile?.full_name || "Private Employer",
-              org_type: organizationProfile?.role || "school",
-              verified: false,
-              contact_person:
-                organizationProfile?.full_name || "Contact Person",
-            },
-          };
-        }),
-      );
-
-      const activeJobs = jobsWithOrganizations.filter((job) => {
-        if (!job.application_deadline) return true;
-        const deadline = new Date(job.application_deadline);
-        return deadline >= new Date();
-      });
-
-      setJobs(activeJobs);
-      setFilteredJobs(activeJobs);
-    } catch (error) {
-      console.error("Error loading jobs:", error);
-      setFilteredJobs([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const filterJobs = () => {
     let result = [...jobs];
 
     if (searchQuery.trim()) {
@@ -154,7 +96,87 @@ export default function HomePage() {
     }
 
     setFilteredJobs(result);
-  };
+  }, [jobs, filters, searchQuery]);
+
+  async function loadJobs() {
+    try {
+      setLoading(true);
+      const { data: jobsData, error: jobsError } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (jobsError) {
+        console.error("Error fetching jobs:", jobsError);
+        setFilteredJobs([]);
+        return;
+      }
+
+      // Enrich with organization profiles
+      const jobsWithOrganizations = await Promise.all(
+        (jobsData || []).map(async (job) => {
+          let organizationProfile = null;
+          if (job.organization_id) {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("full_name, role, location, phone")
+              .eq("id", job.organization_id)
+              .single();
+            organizationProfile = profileData;
+          }
+          return {
+            ...job,
+            organizations: {
+              org_name: organizationProfile?.full_name || "Private Employer",
+              org_type: organizationProfile?.role || "school",
+              verified: false,
+              contact_person:
+                organizationProfile?.full_name || "Contact Person",
+            },
+          };
+        }),
+      );
+
+      const activeJobs = jobsWithOrganizations.filter((job) => {
+        if (!job.application_deadline) return true;
+        const deadline = new Date(job.application_deadline);
+        return deadline >= new Date();
+      });
+
+      setJobs(activeJobs);
+      setFilteredJobs(activeJobs);
+    } catch (error) {
+      console.error("Error loading jobs:", error);
+      setFilteredJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadViewerRole() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.id) {
+        setViewerRole(null);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setViewerRole((profile?.role || "").toLowerCase() || null);
+    } catch (error) {
+      console.error("Error loading viewer role:", error);
+      setViewerRole(null);
+    }
+  }
 
   const extractSalary = (salaryString) => {
     if (!salaryString) return 0;
@@ -288,6 +310,7 @@ export default function HomePage() {
                     key={job.id}
                     job={job}
                     onClick={() => handleJobClick(job)}
+                    viewerRole={viewerRole}
                   />
                 ))}
               </div>
@@ -300,6 +323,7 @@ export default function HomePage() {
       {showDetail && selectedJob && (
         <JobDetailModal
           job={selectedJob}
+          viewerRole={viewerRole}
           onClose={() => setShowDetail(false)}
           onApply={() => {
             // The modal will call the job's own apply logic? Better to close and rely on JobCard's apply button.
