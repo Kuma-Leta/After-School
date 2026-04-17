@@ -592,7 +592,7 @@ export default async function Home() {
 
               <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
                 <Link
-                  href={isLoggedIn ? "/dashboard" : "/register"}
+                  href={isLoggedIn ? dashboardHref : "/register"}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-4 text-base font-bold text-[#171717] shadow-[0_18px_40px_rgba(255,255,255,0.18)] transition hover:bg-[#FFF3ED]"
                 >
                   {isLoggedIn ? "Go to dashboard" : "Create your account"}
@@ -638,7 +638,7 @@ export default async function Home() {
               </Link>
             )}
             <Link
-              href={isLoggedIn ? "/dashboard" : "/register"}
+              href={isLoggedIn ? dashboardHref : "/register"}
               className="font-semibold text-[#1F1F1F] transition hover:text-[#C63E21]"
             >
               {isLoggedIn ? "Dashboard" : "Get Started"}
