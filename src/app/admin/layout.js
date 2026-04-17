@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import AdminSignOutButton from "@/features/admin/components/AdminSignOutButton";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -72,6 +73,7 @@ export default async function AdminLayout({ children }) {
             >
               Settings
             </Link>
+            <AdminSignOutButton />
           </nav>
         </div>
       </header>
