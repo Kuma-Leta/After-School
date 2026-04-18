@@ -10,6 +10,15 @@ import { SearchBar } from "./components/SearchBar";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import Header from "@/components/layout/Header";
 
+const DEFAULT_FILTERS = {
+  jobType: [],
+  category: [],
+  duration: [],
+  hoursPerWeek: [],
+  location: [],
+  salaryRange: { min: 0, max: 50000 },
+};
+
 export default function HomePage() {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -18,14 +27,8 @@ export default function HomePage() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState({
-    jobType: [],
-    category: [],
-    duration: [],
-    hoursPerWeek: [],
-    location: [],
-    salaryRange: { min: 0, max: 50000 },
-  });
+  const [sortBy, setSortBy] = useState("newest");
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
   useEffect(() => {
     loadJobs();
@@ -95,8 +98,33 @@ export default function HomePage() {
       });
     }
 
+    if (sortBy === "salary_high") {
+      result.sort(
+        (a, b) => extractSalary(b.salary_range) - extractSalary(a.salary_range),
+      );
+    } else if (sortBy === "salary_low") {
+      result.sort(
+        (a, b) => extractSalary(a.salary_range) - extractSalary(b.salary_range),
+      );
+    } else if (sortBy === "deadline") {
+      result.sort((a, b) => {
+        const dateA = a.application_deadline
+          ? new Date(a.application_deadline).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const dateB = b.application_deadline
+          ? new Date(b.application_deadline).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        return dateA - dateB;
+      });
+    } else {
+      result.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+    }
+
     setFilteredJobs(result);
-  }, [jobs, filters, searchQuery]);
+  }, [jobs, filters, searchQuery, sortBy]);
 
   async function loadJobs() {
     try {
@@ -192,143 +220,264 @@ export default function HomePage() {
     setShowDetail(true);
   };
 
+  const clearAll = () => {
+    setSearchQuery("");
+    setSortBy("newest");
+    setFilters(DEFAULT_FILTERS);
+  };
+
+  const activeFilterCount = Object.values(filters).reduce((count, filter) => {
+    if (Array.isArray(filter)) return count + filter.length;
+    if (
+      typeof filter === "object" &&
+      filter.min === 0 &&
+      filter.max === 50000
+    ) {
+      return count;
+    }
+    return count + 1;
+  }, 0);
+
+  const topSubjects = [
+    ...new Set(jobs.map((job) => job.subject).filter(Boolean)),
+  ].slice(0, 6);
+
+  const topLocations = [
+    ...new Set(jobs.map((job) => job.location).filter(Boolean)),
+  ].slice(0, 4);
+
+  const urgentJobs = jobs.filter((job) => {
+    if (!job.application_deadline) return false;
+    const daysLeft = Math.ceil(
+      (new Date(job.application_deadline) - new Date()) / (1000 * 60 * 60 * 24),
+    );
+    return daysLeft >= 0 && daysLeft <= 3;
+  }).length;
+
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-gray-600">Loading job opportunities...</p>
+      <div className="min-h-screen bg-[#f7f8fc] flex flex-col items-center justify-center px-4">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-xl px-8 py-10 w-full max-w-md text-center">
+          <div className="flex justify-center">
+            <LoadingSpinner size="lg" />
+          </div>
+          <p className="mt-4 text-slate-800 font-semibold">
+            Loading job opportunities...
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Fetching the latest teaching roles for you.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <Header />
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-[#FF1E00] to-[#FF6B00] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Find Your Perfect{" "}
-              <span className="text-yellow-300">Teaching</span> Job
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
-              Connect with schools, families, and organizations looking for
-              talented educators in Ethiopia
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-[#8f2f07] text-white">
+        <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-[#FF6B00]/25 blur-3xl" />
+        <div className="absolute -bottom-20 -right-10 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <div className="text-center mb-8 md:mb-10">
+            <p className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-4 py-1.5 text-sm font-medium tracking-wide mb-5">
+              Curated opportunities across Ethiopia
             </p>
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-4">
+              Discover Your Next
+              <span className="block text-[#FFC56F]">Teaching Opportunity</span>
+            </h1>
+            <p className="text-lg md:text-xl text-slate-100/95 max-w-3xl mx-auto">
+              Explore verified openings from schools, families, and
+              organizations. Use smart filters to find roles that match your
+              experience and goals.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap justify-center gap-6 mb-8">
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 min-w-[120px]">
-                <div className="text-3xl font-bold">{jobs.length}</div>
-                <div className="text-sm opacity-90">Active Jobs</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 min-w-[120px]">
-                <div className="text-3xl font-bold">
-                  {
-                    [...new Set(jobs.map((j) => j.location).filter(Boolean))]
-                      .length
-                  }
-                </div>
-                <div className="text-sm opacity-90">Locations</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 min-w-[120px]">
-                <div className="text-3xl font-bold">
-                  {
-                    [...new Set(jobs.map((j) => j.subject).filter(Boolean))]
-                      .length
-                  }
-                </div>
-                <div className="text-sm opacity-90">Subjects</div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
+            <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur p-4 text-left">
+              <p className="text-xs uppercase tracking-wider text-slate-200">
+                Open Jobs
+              </p>
+              <p className="text-3xl font-bold mt-1">{jobs.length}</p>
             </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur p-4 text-left">
+              <p className="text-xs uppercase tracking-wider text-slate-200">
+                Locations
+              </p>
+              <p className="text-3xl font-bold mt-1">{topLocations.length}</p>
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur p-4 text-left">
+              <p className="text-xs uppercase tracking-wider text-slate-200">
+                Subjects
+              </p>
+              <p className="text-3xl font-bold mt-1">{topSubjects.length}</p>
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur p-4 text-left">
+              <p className="text-xs uppercase tracking-wider text-slate-200">
+                Urgent Roles
+              </p>
+              <p className="text-3xl font-bold mt-1">{urgentJobs}</p>
+            </div>
+          </div>
 
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search for jobs by title, subject, or location..."
-            />
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by title, subject, location, or skill..."
+          />
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-sm text-slate-100/90">Quick picks:</span>
+            {topSubjects.map((subject) => {
+              const isActive = filters.category.includes(subject);
+              return (
+                <button
+                  key={subject}
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      category: isActive
+                        ? prev.category.filter((item) => item !== subject)
+                        : [...prev.category, subject],
+                    }))
+                  }
+                  className={`rounded-full px-3 py-1.5 text-sm border transition ${
+                    isActive
+                      ? "bg-[#FFC56F] text-slate-900 border-[#FFC56F]"
+                      : "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {subject}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters Sidebar */}
-          <div className="lg:w-1/4">
-            <JobFilters filters={filters} setFilters={setFilters} jobs={jobs} />
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 md:p-5 mb-6 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">
+              {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""}{" "}
+              Found
+            </h2>
+            <p className="text-slate-600 mt-1">
+              {searchQuery
+                ? `Results for \"${searchQuery}\"`
+                : "Browse all available teaching positions"}
+            </p>
           </div>
 
-          {/* Job Listings */}
-          <div className="lg:w-3/4">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {filteredJobs.length} Job
-                  {filteredJobs.length !== 1 ? "s" : ""} Found
-                </h2>
-                <p className="text-gray-600">
-                  {searchQuery
-                    ? `Results for "${searchQuery}"`
-                    : "Browse all available teaching positions"}
-                </p>
-              </div>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <label
+              className="text-sm text-slate-700 font-medium"
+              htmlFor="sort-jobs"
+            >
+              Sort by
+            </label>
+            <select
+              id="sort-jobs"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]"
+            >
+              <option value="newest">Newest first</option>
+              <option value="deadline">Closest deadline</option>
+              <option value="salary_high">Highest salary</option>
+              <option value="salary_low">Lowest salary</option>
+            </select>
 
+            {(searchQuery || activeFilterCount > 0) && (
+              <button
+                onClick={clearAll}
+                className="rounded-lg px-4 py-2 text-sm font-semibold bg-slate-900 text-white hover:bg-black"
+              >
+                Reset All
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="lg:w-1/4">
+            <div className="lg:sticky lg:top-24">
+              <JobFilters
+                filters={filters}
+                setFilters={setFilters}
+                jobs={jobs}
+              />
+            </div>
+          </div>
+
+          <div className="lg:w-3/4">
             {filteredJobs.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-                <div className="text-gray-400 text-6xl mb-4">🔍</div>
-                <h3 className="text-2xl font-medium text-gray-900 mb-2">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-12 text-center">
+                <div className="mx-auto mb-5 w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-5-5m2-4a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">
                   No jobs found
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-slate-600 mb-6">
                   {searchQuery
                     ? `No jobs match your search for "${searchQuery}". Try different keywords or filters.`
                     : "There are currently no active job postings. Check back soon!"}
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFilters({
-                      jobType: [],
-                      category: [],
-                      duration: [],
-                      hoursPerWeek: [],
-                      location: [],
-                      salaryRange: { min: 0, max: 50000 },
-                    });
-                  }}
-                  className="px-6 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-medium"
+                  onClick={clearAll}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-black font-semibold"
                 >
                   Clear Filters
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredJobs.map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    onClick={() => handleJobClick(job)}
-                    viewerRole={viewerRole}
-                  />
-                ))}
-              </div>
+              <>
+                {urgentJobs > 0 && (
+                  <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 text-sm font-medium">
+                    {urgentJobs} role{urgentJobs !== 1 ? "s" : ""} close within
+                    3 days. Apply soon.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredJobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      onClick={() => handleJobClick(job)}
+                      viewerRole={viewerRole}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Job Detail Modal */}
       {showDetail && selectedJob && (
         <JobDetailModal
           job={selectedJob}
           viewerRole={viewerRole}
           onClose={() => setShowDetail(false)}
           onApply={() => {
-            // The modal will call the job's own apply logic? Better to close and rely on JobCard's apply button.
-            // But since the modal might have its own apply button, we can simply close it and let user click apply on card.
-            // For simplicity, we can just close.
             setShowDetail(false);
           }}
         />
