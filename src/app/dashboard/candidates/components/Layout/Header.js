@@ -19,12 +19,6 @@ export default function Header({ title, description, onBack, showBackButton }) {
             <p className="text-gray-600 mt-2">{description}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          {/* You can add notification bell or other icons here */}
-          <button className="p-2 text-gray-600 hover:text-gray-900">
-            <Bell className="h-6 w-6" />
-          </button>
-        </div>
       </div>
     </div>
   );
