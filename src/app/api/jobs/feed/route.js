@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isJobVisibleToUser, normalizeLocation } from "@/lib/jobs/visibility";
+import { normalizeJobModel, validateJobModel } from "@/lib/jobs/model";
 
 const TALENT_ROLES = ["teacher", "student"];
 
@@ -62,12 +63,15 @@ export async function GET(request) {
     }
 
     const activeJobs = (jobsData || []).filter(isDeadlineActive);
+    const validJobs = activeJobs
+      .map((job) => {
+        const { isValid, normalized } = validateJobModel(job);
+        return isValid ? normalized : null;
+      })
+      .filter(Boolean);
 
     if (!user?.id) {
-      const publicJobs = await enrichJobsWithOrganizations(
-        supabase,
-        activeJobs,
-      );
+      const publicJobs = await enrichJobsWithOrganizations(supabase, validJobs);
       return NextResponse.json({
         jobs: publicJobs,
         policy: {
@@ -93,7 +97,7 @@ export async function GET(request) {
     const role = (profile?.role || "").toLowerCase();
     const userLocation = normalizeLocation(profile?.location);
 
-    let visibleJobs = activeJobs;
+    let visibleJobs = validJobs;
 
     if (TALENT_ROLES.includes(role)) {
       if (!userLocation) {
@@ -112,7 +116,7 @@ export async function GET(request) {
         );
       }
 
-      visibleJobs = activeJobs.filter((job) =>
+      visibleJobs = validJobs.filter((job) =>
         isJobVisibleToUser(job, userLocation, { includeRemotePartTime }),
       );
     }

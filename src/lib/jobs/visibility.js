@@ -1,3 +1,5 @@
+import { normalizeJobModel } from "@/lib/jobs/model";
+
 const REMOTE_PATTERNS = [
   "remote",
   "online",
@@ -26,11 +28,20 @@ export function matchesLocalJob(jobLocation, userLocation) {
 }
 
 export function isRemotePartTimeJob(job) {
+  const normalizedJob = normalizeJobModel(job);
+
+  if (
+    normalizedJob.job_mode === "remote" &&
+    normalizedJob.employment_type === "part_time"
+  ) {
+    return true;
+  }
+
   const searchableText = [
-    normalizeLocation(job?.title),
-    normalizeLocation(job?.description),
-    normalizeLocation(job?.location),
-    normalizeLocation(job?.job_type),
+    normalizeLocation(normalizedJob?.title),
+    normalizeLocation(normalizedJob?.description),
+    normalizeLocation(normalizedJob?.location),
+    normalizeLocation(normalizedJob?.job_type),
   ].join(" ");
 
   const isRemote = REMOTE_PATTERNS.some((token) =>
@@ -48,11 +59,14 @@ export function isJobVisibleToUser(
   userLocation,
   { includeRemotePartTime = false } = {},
 ) {
-  if (matchesLocalJob(job?.location, userLocation)) {
+  const normalizedJob = normalizeJobModel(job);
+  const jobCityOrLocation = normalizedJob?.city || normalizedJob?.location;
+
+  if (matchesLocalJob(jobCityOrLocation, userLocation)) {
     return true;
   }
 
-  if (includeRemotePartTime && isRemotePartTimeJob(job)) {
+  if (includeRemotePartTime && isRemotePartTimeJob(normalizedJob)) {
     return true;
   }
 

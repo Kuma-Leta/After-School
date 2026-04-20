@@ -1,17 +1,16 @@
 // app/dashboard/profile/components/MyJobs.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/AuthProvider";
-
-const JOB_TYPES = [
-  "Full-time",
-  "Part-time",
-  "Contract",
-  "Temporary",
-  "Volunteer",
-];
+import {
+  EMPLOYMENT_TYPE_LABEL_MAP,
+  EMPLOYMENT_TYPE_OPTIONS,
+  JOB_MODE_OPTIONS,
+  normalizeJobModel,
+  validateJobModel,
+} from "@/lib/jobs/model";
 const SUBJECTS = [
   "Mathematics",
   "Physics",
@@ -52,9 +51,11 @@ export default function MyJobs() {
     title: "",
     description: "",
     requirements: "",
-    job_type: "Part-time",
+    employment_type: "part_time",
+    job_mode: "onsite",
     subject: "",
     grade_levels: [],
+    city: "",
     location: "",
     schedule: "",
     salary_range: "",
@@ -65,11 +66,7 @@ export default function MyJobs() {
     is_active: true,
   });
 
-  useEffect(() => {
-    loadJobs();
-  }, [user]);
-
-  async function loadJobs() {
+  const loadJobs = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -87,10 +84,23 @@ export default function MyJobs() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    if (name === "job_mode") {
+      setFormData((prev) => ({
+        ...prev,
+        job_mode: value,
+        city: value === "remote" ? "" : prev.city,
+      }));
+      return;
+    }
 
     if (type === "checkbox" && name === "grade_levels") {
       const currentLevels = formData.grade_levels || [];
@@ -115,8 +125,17 @@ export default function MyJobs() {
     e.preventDefault();
 
     try {
+      const validationResult = validateJobModel(formData);
+      if (!validationResult.isValid) {
+        alert(validationResult.errors.join("\n"));
+        return;
+      }
+
+      const normalizedFormData = validationResult.normalized;
+
       const jobData = {
         ...formData,
+        ...normalizedFormData,
         organization_id: user.id,
         organization_type: "organization", // This should match the user's role
         requirements: formData.requirements
@@ -156,26 +175,33 @@ export default function MyJobs() {
   };
 
   const handleEdit = (job) => {
+    const normalizedJob = normalizeJobModel(job);
+
     setEditingJob(job);
     setFormData({
-      title: job.title || "",
-      description: job.description || "",
+      title: normalizedJob.title || "",
+      description: normalizedJob.description || "",
       requirements: Array.isArray(job.requirements)
         ? job.requirements.join("\n")
         : job.requirements || "",
-      job_type: job.job_type || "Part-time",
-      subject: job.subject || "",
+      employment_type: normalizedJob.employment_type || "part_time",
+      job_mode: normalizedJob.job_mode || "onsite",
+      subject: normalizedJob.subject || "",
       grade_levels: Array.isArray(job.grade_levels) ? job.grade_levels : [],
-      location: job.location || "",
-      schedule: job.schedule || "",
-      salary_range: job.salary_range || "",
-      application_deadline: job.application_deadline
-        ? job.application_deadline.split("T")[0]
+      city: normalizedJob.city || "",
+      location: normalizedJob.location || "",
+      schedule: normalizedJob.schedule || "",
+      salary_range: normalizedJob.salary_range || "",
+      application_deadline: normalizedJob.application_deadline
+        ? normalizedJob.application_deadline.split("T")[0]
         : "",
-      start_date: job.start_date ? job.start_date.split("T")[0] : "",
-      duration: job.duration || "",
-      vacancies: job.vacancies || 1,
-      is_active: job.is_active !== undefined ? job.is_active : true,
+      start_date: normalizedJob.start_date
+        ? normalizedJob.start_date.split("T")[0]
+        : "",
+      duration: normalizedJob.duration || "",
+      vacancies: normalizedJob.vacancies || 1,
+      is_active:
+        normalizedJob.is_active !== undefined ? normalizedJob.is_active : true,
     });
     setShowForm(true);
   };
@@ -215,9 +241,11 @@ export default function MyJobs() {
       title: "",
       description: "",
       requirements: "",
-      job_type: "Part-time",
+      employment_type: "part_time",
+      job_mode: "onsite",
       subject: "",
       grade_levels: [],
+      city: "",
       location: "",
       schedule: "",
       salary_range: "",
@@ -297,18 +325,38 @@ export default function MyJobs() {
               {/* Job Type */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Job Type <span className="text-red-600">*</span>
+                  Employment Type <span className="text-red-600">*</span>
                 </label>
                 <select
-                  name="job_type"
-                  value={formData.job_type}
+                  name="employment_type"
+                  value={formData.employment_type}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
                   required
                 >
-                  {JOB_TYPES.map((type) => (
+                  {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {EMPLOYMENT_TYPE_LABEL_MAP[type]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Job Mode */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Job Mode <span className="text-red-600">*</span>
+                </label>
+                <select
+                  name="job_mode"
+                  value={formData.job_mode}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
+                  required
+                >
+                  {JOB_MODE_OPTIONS.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
                     </option>
                   ))}
                 </select>
@@ -350,19 +398,28 @@ export default function MyJobs() {
                 />
               </div>
 
-              {/* Location */}
+              {/* City */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Location
+                  City
+                  {formData.job_mode !== "remote" && (
+                    <span className="text-red-600">*</span>
+                  )}
                 </label>
                 <input
                   type="text"
-                  name="location"
-                  value={formData.location}
+                  name="city"
+                  value={formData.city}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900 placeholder:text-gray-500"
-                  placeholder="e.g., Addis Ababa, Bole"
+                  placeholder="e.g., Addis Ababa"
+                  required={formData.job_mode !== "remote"}
                 />
+                {formData.job_mode === "remote" && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    City is optional for remote jobs.
+                  </p>
+                )}
               </div>
 
               {/* Salary Range */}
@@ -658,7 +715,7 @@ export default function MyJobs() {
                             {job.title}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {job.job_type}
+                            {normalizeJobModel(job).job_type}
                           </div>
                         </td>
                         <td className="px-6 py-4">
