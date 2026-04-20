@@ -1,7 +1,7 @@
 // app/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import JobFilters from "./components/JobFilters";
 import JobCard from "./components/JobCard";
@@ -24,6 +24,7 @@ export default function HomePage() {
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewerRole, setViewerRole] = useState(null);
+  const [includeRemotePartTime, setIncludeRemotePartTime] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,8 +33,11 @@ export default function HomePage() {
 
   useEffect(() => {
     loadJobs();
+  }, [loadJobs]);
+
+  useEffect(() => {
     loadViewerRole();
-  }, []);
+  }, [loadViewerRole]);
 
   useEffect(() => {
     let result = [...jobs];
@@ -126,63 +130,42 @@ export default function HomePage() {
     setFilteredJobs(result);
   }, [jobs, filters, searchQuery, sortBy]);
 
-  async function loadJobs() {
+  const loadJobs = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: jobsData, error: jobsError } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      const response = await fetch(
+        `/api/jobs/feed?includeRemotePartTime=${includeRemotePartTime}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        },
+      );
 
-      if (jobsError) {
-        console.error("Error fetching jobs:", jobsError);
+      if (!response.ok) {
+        console.error("Error fetching jobs feed:", response.statusText);
+        setJobs([]);
         setFilteredJobs([]);
         return;
       }
 
-      // Enrich with organization profiles
-      const jobsWithOrganizations = await Promise.all(
-        (jobsData || []).map(async (job) => {
-          let organizationProfile = null;
-          if (job.organization_id) {
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("full_name, role, location, phone")
-              .eq("id", job.organization_id)
-              .single();
-            organizationProfile = profileData;
-          }
-          return {
-            ...job,
-            organizations: {
-              org_name: organizationProfile?.full_name || "Private Employer",
-              org_type: organizationProfile?.role || "school",
-              verified: false,
-              contact_person:
-                organizationProfile?.full_name || "Contact Person",
-            },
-          };
-        }),
-      );
+      const payload = await response.json();
+      const serverJobs = payload?.jobs || [];
 
-      const activeJobs = jobsWithOrganizations.filter((job) => {
-        if (!job.application_deadline) return true;
-        const deadline = new Date(job.application_deadline);
-        return deadline >= new Date();
-      });
-
-      setJobs(activeJobs);
-      setFilteredJobs(activeJobs);
+      setJobs(serverJobs);
+      setFilteredJobs(serverJobs);
     } catch (error) {
       console.error("Error loading jobs:", error);
+      setJobs([]);
       setFilteredJobs([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [includeRemotePartTime]);
 
-  async function loadViewerRole() {
+  const loadViewerRole = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -204,7 +187,7 @@ export default function HomePage() {
       console.error("Error loading viewer role:", error);
       setViewerRole(null);
     }
-  }
+  }, []);
 
   const extractSalary = (salaryString) => {
     if (!salaryString) return 0;
@@ -223,6 +206,7 @@ export default function HomePage() {
   const clearAll = () => {
     setSearchQuery("");
     setSortBy("newest");
+    setIncludeRemotePartTime(false);
     setFilters(DEFAULT_FILTERS);
   };
 
@@ -327,6 +311,18 @@ export default function HomePage() {
             onChange={setSearchQuery}
             placeholder="Search by title, subject, location, or skill..."
           />
+
+          <div className="mt-5 flex justify-center">
+            <label className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeRemotePartTime}
+                onChange={(e) => setIncludeRemotePartTime(e.target.checked)}
+                className="h-4 w-4 rounded border-white/50 text-[#FF6B00] focus:ring-[#FF6B00]"
+              />
+              Include remote part-time jobs
+            </label>
+          </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <span className="text-sm text-slate-100/90">Quick picks:</span>

@@ -42,38 +42,26 @@ export default function ApplyPage() {
         return;
       }
 
-      // 1. Fetch job details (without join)
-      const { data: jobData, error: jobError } = await supabase
-        .from("jobs")
-        .select("*") // Only select job columns, no join
-        .eq("id", jobId)
-        .single();
+      // 1. Fetch job details through backend policy-enforced API
+      const jobResponse = await fetch(
+        `/api/jobs/${jobId}?includeRemotePartTime=true`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        },
+      );
 
-      if (jobError) {
-        console.error("Job fetch error:", jobError);
-        throw jobError;
+      if (!jobResponse.ok) {
+        const errorPayload = await jobResponse.json().catch(() => ({}));
+        throw new Error(errorPayload?.error || "Unable to access this job");
       }
 
-      console.log("Job data fetched:", jobData);
+      const { job: jobData } = await jobResponse.json();
 
-      // 2. If job has organization_id, fetch organization profile separately
-      let organizationData = null;
-      if (jobData.organization_id) {
-        const { data: orgData, error: orgError } = await supabase
-          .from("profiles")
-          .select("full_name, role, location, phone")
-          .eq("id", jobData.organization_id)
-          .maybeSingle();
-
-        if (!orgError && orgData) {
-          organizationData = orgData;
-          console.log("Organization data fetched:", orgData);
-        } else {
-          console.log("No organization data found or error:", orgError);
-        }
-      }
-
-      // 3. Fetch user profile
+      // 2. Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -85,22 +73,7 @@ export default function ApplyPage() {
         throw profileError;
       }
 
-      // Transform job data with fallbacks
-      const transformedJob = {
-        ...jobData,
-        organizations: {
-          org_name: organizationData?.full_name || "Private Employer",
-          org_type: organizationData?.role || "organization",
-          verified: false,
-          contact_person: organizationData?.full_name || "Contact",
-          location: organizationData?.location || jobData.location || "",
-          phone: organizationData?.phone || "",
-        },
-      };
-
-      console.log("Transformed job:", transformedJob);
-
-      setJob(transformedJob);
+      setJob(jobData);
       setProfile(profileData);
     } catch (error) {
       console.error("Error loading data:", {
