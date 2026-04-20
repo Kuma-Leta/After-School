@@ -235,13 +235,16 @@ export default function HomePage() {
       if (!remoteAlertsEnabled) return;
 
       try {
-        const response = await fetch(`/api/jobs/feed?includeRemotePartTime=true`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          `/api/jobs/feed?includeRemotePartTime=true`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
           },
-          cache: "no-store",
-        });
+        );
 
         if (!response.ok) {
           return;
@@ -586,7 +589,9 @@ export default function HomePage() {
         {newRemoteMatchesCount > 0 && (
           <div className="mb-6 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900 flex items-start justify-between gap-4">
             <p className="text-sm font-medium">
-              {newRemoteMatchesCount} new remote part-time {newRemoteMatchesCount === 1 ? "job" : "jobs"} just matched your preferences.
+              {newRemoteMatchesCount} new remote part-time{" "}
+              {newRemoteMatchesCount === 1 ? "job" : "jobs"} just matched your
+              preferences.
             </p>
             <div className="flex items-center gap-3">
               {discoveryTab !== "remote" && (
