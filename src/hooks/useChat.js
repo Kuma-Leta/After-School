@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { getEmployerContactEntitlement } from "@/lib/services/contact-entitlement";
 
 export const useChat = () => {
   const [conversations, setConversations] = useState([]);
@@ -63,42 +64,6 @@ export const useChat = () => {
     }
   }, []);
 
-  // Fetch messages for a conversation
-  const fetchMessages = useCallback(async (conversationId) => {
-    try {
-      const { data, error } = await supabase
-        .from("messages")
-        .select(
-          `
-          *,
-          sender:profiles(*),
-          reactions:message_reactions(
-            *,
-            profile:profiles(*)
-          ),
-          parent_message:messages(
-            *,
-            sender:profiles(*)
-          )
-        `,
-        )
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-
-      setMessages((prev) => ({
-        ...prev,
-        [conversationId]: data || [],
-      }));
-
-      // Mark messages as read
-      await markMessagesAsRead(conversationId);
-    } catch (err) {
-      setError(err.message || "Failed to fetch messages");
-    }
-  }, []);
-
   // Mark messages as read
   const markMessagesAsRead = useCallback(async (conversationId) => {
     try {
@@ -136,6 +101,45 @@ export const useChat = () => {
       console.error("Failed to mark messages as read:", err);
     }
   }, []);
+
+  // Fetch messages for a conversation
+  const fetchMessages = useCallback(
+    async (conversationId) => {
+      try {
+        const { data, error } = await supabase
+          .from("messages")
+          .select(
+            `
+          *,
+          sender:profiles(*),
+          reactions:message_reactions(
+            *,
+            profile:profiles(*)
+          ),
+          parent_message:messages(
+            *,
+            sender:profiles(*)
+          )
+        `,
+          )
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+
+        setMessages((prev) => ({
+          ...prev,
+          [conversationId]: data || [],
+        }));
+
+        // Mark messages as read
+        await markMessagesAsRead(conversationId);
+      } catch (err) {
+        setError(err.message || "Failed to fetch messages");
+      }
+    },
+    [markMessagesAsRead],
+  );
 
   // Send a message
   const sendMessage = useCallback(
@@ -191,6 +195,13 @@ export const useChat = () => {
 
   // Create a new conversation
   // In useChat.js - improved createConversation
+  const canContactParticipant = useCallback(async (candidateId) => {
+    return getEmployerContactEntitlement({
+      candidateId,
+      requireApplication: true,
+    });
+  }, []);
+
   const createConversation = useCallback(
     async (participantIds, isGroup = false, name, avatarUrl) => {
       try {
@@ -202,6 +213,19 @@ export const useChat = () => {
         if (!session?.user) throw new Error("No active session");
 
         const userId = session.user.id;
+
+        // Centralized contact entitlement check for each target participant.
+        for (const participantId of participantIds || []) {
+          if (!participantId || participantId === userId) continue;
+
+          const entitlement = await canContactParticipant(participantId);
+          if (!entitlement.allowed) {
+            throw new Error(
+              entitlement.message ||
+                "You are not allowed to contact this candidate.",
+            );
+          }
+        }
 
         // 1. Create conversation via RPC (returns basic fields)
         const { data: conversation, error } = await supabase.rpc(
@@ -245,7 +269,7 @@ export const useChat = () => {
         throw err;
       }
     },
-    [fetchConversations],
+    [canContactParticipant, fetchConversations],
   );
 
   // Set up real-time subscriptions

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { X, Search, UserPlus } from "lucide-react";
+import { getEmployerContactEntitlement } from "@/lib/services/contact-entitlement";
 
 const NewChatModal = ({
   isOpen,
@@ -9,19 +10,61 @@ const NewChatModal = ({
   currentUserId,
 }) => {
   const [users, setUsers] = useState([]);
+  const [contactEligibility, setContactEligibility] = useState({});
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isGroup, setIsGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [eligibilityLoading, setEligibilityLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchUsers();
+  const loadContactEligibility = useCallback(async (availableUsers) => {
+    try {
+      setEligibilityLoading(true);
+
+      const candidateUsers = (availableUsers || []).filter((user) =>
+        ["teacher", "student"].includes((user.role || "").toLowerCase()),
+      );
+
+      if (candidateUsers.length === 0) {
+        setContactEligibility({});
+        return;
+      }
+
+      const checks = await Promise.all(
+        candidateUsers.map(async (user) => {
+          try {
+            const payload = await getEmployerContactEntitlement({
+              candidateId: user.id,
+              requireApplication: true,
+            });
+
+            return [
+              user.id,
+              {
+                allowed: !!payload.allowed,
+                message: payload.message || null,
+              },
+            ];
+          } catch {
+            return [
+              user.id,
+              {
+                allowed: false,
+                message: "Contact eligibility check failed.",
+              },
+            ];
+          }
+        }),
+      );
+
+      setContactEligibility(Object.fromEntries(checks));
+    } finally {
+      setEligibilityLoading(false);
     }
-  }, [isOpen]);
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -31,15 +74,29 @@ const NewChatModal = ({
         .order("full_name");
 
       if (error) throw error;
-      setUsers(data || []);
+
+      const availableUsers = data || [];
+      setUsers(availableUsers);
+      await loadContactEligibility(availableUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserId, loadContactEligibility]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen, fetchUsers]);
 
   const toggleUserSelection = (user) => {
+    const eligibility = contactEligibility[user.id];
+    if (eligibility && !eligibility.allowed) {
+      return;
+    }
+
     if (selectedUsers.some((u) => u.id === user.id)) {
       setSelectedUsers(selectedUsers.filter((u) => u.id !== user.id));
     } else {
@@ -66,6 +123,7 @@ const NewChatModal = ({
 
   const handleClose = () => {
     setSelectedUsers([]);
+    setContactEligibility({});
     setSearchQuery("");
     setIsGroup(false);
     setGroupName("");
@@ -84,7 +142,6 @@ const NewChatModal = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
-        {/* Header */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             <div>
@@ -103,7 +160,6 @@ const NewChatModal = ({
             </button>
           </div>
 
-          {/* Selected Users */}
           {selectedUsers.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {selectedUsers.map((user) => (
@@ -124,7 +180,6 @@ const NewChatModal = ({
           )}
         </div>
 
-        {/* Search */}
         <div className="p-6 border-b">
           <div className="relative">
             <input
@@ -137,8 +192,12 @@ const NewChatModal = ({
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
 
-          {/* Group Chat Options */}
           <div className="mt-4 space-y-3">
+            {eligibilityLoading && (
+              <p className="text-xs text-gray-500">
+                Checking contact eligibility for candidates...
+              </p>
+            )}
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -168,7 +227,6 @@ const NewChatModal = ({
           </div>
         </div>
 
-        {/* Users List */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="text-center py-8">
@@ -181,54 +239,68 @@ const NewChatModal = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => toggleUserSelection(user)}
-                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                    selectedUsers.some((u) => u.id === user.id)
-                      ? "bg-blue-50 border border-blue-100"
-                      : "hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                    {user.avatar_url ? (
-                      <img
-                        src={user.avatar_url}
-                        alt={user.full_name}
-                        className="w-10 h-10 object-cover"
-                      />
-                    ) : (
-                      <span className="text-gray-600 font-medium">
-                        {user.full_name?.charAt(0) || "U"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">
-                        {user.full_name}
-                      </h3>
-                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
-                        {user.role}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">{user.email}</p>
-                  </div>
+              {filteredUsers.map((user) => {
+                const eligibility = contactEligibility[user.id];
+                const isBlocked = eligibility && !eligibility.allowed;
+
+                return (
                   <div
-                    className={`w-5 h-5 rounded-full border-2 ${
+                    key={user.id}
+                    onClick={() => toggleUserSelection(user)}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
                       selectedUsers.some((u) => u.id === user.id)
-                        ? "bg-[#FF1E00] border-[#FF1E00]"
-                        : "border-gray-300"
+                        ? "bg-blue-50 border border-blue-100"
+                        : isBlocked
+                          ? "bg-gray-50 border border-gray-200 opacity-70"
+                          : "hover:bg-gray-50"
                     }`}
-                  />
-                </div>
-              ))}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt={user.full_name}
+                          className="w-10 h-10 object-cover"
+                        />
+                      ) : (
+                        <span className="text-gray-600 font-medium">
+                          {user.full_name?.charAt(0) || "U"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-900">
+                          {user.full_name}
+                        </h3>
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
+                          {user.role}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      {isBlocked && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          {eligibility.message ||
+                            "Contact not allowed by policy."}
+                        </p>
+                      )}
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 ${
+                        isBlocked
+                          ? "border-gray-300 bg-gray-100"
+                          : selectedUsers.some((u) => u.id === user.id)
+                            ? "bg-[#FF1E00] border-[#FF1E00]"
+                            : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Actions */}
         <div className="p-6 border-t">
           <div className="flex items-center justify-between">
             <button
