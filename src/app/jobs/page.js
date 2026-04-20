@@ -65,14 +65,6 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
-
-  useEffect(() => {
-    loadViewerRole();
-  }, [loadViewerRole]);
-
-  useEffect(() => {
     let result = [...jobs];
 
     if (discoveryTab === "remote") {
@@ -229,6 +221,14 @@ export default function HomePage() {
       setViewerRole(null);
     }
   }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  useEffect(() => {
+    loadViewerRole();
+  }, [loadViewerRole]);
 
   const syncRemotePartTimeAlerts = useCallback(
     async ({ notify = false } = {}) => {
