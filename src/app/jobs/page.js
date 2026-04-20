@@ -9,6 +9,8 @@ import JobDetailModal from "./components/JobDetailModal";
 import { SearchBar } from "./components/SearchBar";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import Header from "@/components/layout/Header";
+import { isRemotePartTimeJob } from "@/lib/jobs/visibility";
+import * as NotificationService from "@/lib/supabase/notifications";
 
 const DEFAULT_FILTERS = {
   jobType: [],
@@ -19,17 +21,48 @@ const DEFAULT_FILTERS = {
   salaryRange: { min: 0, max: 50000 },
 };
 
+const REMOTE_VIEW_PREF_KEY = "afterschool.jobs.pref.remoteOnly";
+const REMOTE_ALERT_PREF_KEY = "afterschool.jobs.pref.remoteAlerts";
+
+function getSeenRemoteJobsKey(userId) {
+  return `afterschool.jobs.remote.seen.${userId || "guest"}`;
+}
+
+function parseStoredJsonArray(rawValue) {
+  try {
+    const parsed = JSON.parse(rawValue || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function HomePage() {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewerRole, setViewerRole] = useState(null);
-  const [includeRemotePartTime, setIncludeRemotePartTime] = useState(false);
+  const [viewerId, setViewerId] = useState(null);
+  const [discoveryTab, setDiscoveryTab] = useState("all");
+  const [remoteOnlyPreferred, setRemoteOnlyPreferred] = useState(false);
+  const [remoteAlertsEnabled, setRemoteAlertsEnabled] = useState(true);
+  const [newRemoteMatchesCount, setNewRemoteMatchesCount] = useState(0);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+
+  const includeRemotePartTime = discoveryTab === "remote";
+
+  useEffect(() => {
+    const savedRemoteOnly = localStorage.getItem(REMOTE_VIEW_PREF_KEY) === "1";
+    const savedRemoteAlerts = localStorage.getItem(REMOTE_ALERT_PREF_KEY);
+
+    setRemoteOnlyPreferred(savedRemoteOnly);
+    setDiscoveryTab(savedRemoteOnly ? "remote" : "all");
+    setRemoteAlertsEnabled(savedRemoteAlerts !== "0");
+  }, []);
 
   useEffect(() => {
     loadJobs();
@@ -41,6 +74,10 @@ export default function HomePage() {
 
   useEffect(() => {
     let result = [...jobs];
+
+    if (discoveryTab === "remote") {
+      result = result.filter((job) => isRemotePartTimeJob(job));
+    }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -128,7 +165,7 @@ export default function HomePage() {
     }
 
     setFilteredJobs(result);
-  }, [jobs, filters, searchQuery, sortBy]);
+  }, [jobs, filters, searchQuery, sortBy, discoveryTab]);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -172,9 +209,12 @@ export default function HomePage() {
       } = await supabase.auth.getUser();
 
       if (!user?.id) {
+        setViewerId(null);
         setViewerRole(null);
         return;
       }
+
+      setViewerId(user.id);
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -185,9 +225,106 @@ export default function HomePage() {
       setViewerRole((profile?.role || "").toLowerCase() || null);
     } catch (error) {
       console.error("Error loading viewer role:", error);
+      setViewerId(null);
       setViewerRole(null);
     }
   }, []);
+
+  const syncRemotePartTimeAlerts = useCallback(
+    async ({ notify = false } = {}) => {
+      if (!remoteAlertsEnabled) return;
+
+      try {
+        const response = await fetch(`/api/jobs/feed?includeRemotePartTime=true`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const remoteJobIds = (payload?.jobs || [])
+          .filter((job) => isRemotePartTimeJob(job))
+          .map((job) => job.id)
+          .filter(Boolean);
+
+        const seenKey = getSeenRemoteJobsKey(viewerId);
+        const seenIds = parseStoredJsonArray(localStorage.getItem(seenKey));
+
+        if (seenIds.length === 0) {
+          localStorage.setItem(seenKey, JSON.stringify(remoteJobIds));
+          return;
+        }
+
+        const newIds = remoteJobIds.filter((id) => !seenIds.includes(id));
+        if (!notify || newIds.length === 0) {
+          return;
+        }
+
+        setNewRemoteMatchesCount((prev) => prev + newIds.length);
+
+        if (viewerId) {
+          await NotificationService.createNotification({
+            userId: viewerId,
+            title: "New Remote Part-time Jobs",
+            message: `${newIds.length} new remote part-time ${newIds.length === 1 ? "job" : "jobs"} match your discovery preferences.`,
+            type: "info",
+            metadata: {
+              category: "remote_part_time_discovery",
+              jobIds: newIds,
+              discoveredAt: new Date().toISOString(),
+            },
+            link: "/jobs",
+          });
+        }
+
+        localStorage.setItem(
+          seenKey,
+          JSON.stringify(Array.from(new Set([...seenIds, ...remoteJobIds]))),
+        );
+      } catch (error) {
+        console.error("Error checking remote part-time alerts:", error);
+      }
+    },
+    [remoteAlertsEnabled, viewerId],
+  );
+
+  useEffect(() => {
+    syncRemotePartTimeAlerts({ notify: false });
+  }, [syncRemotePartTimeAlerts]);
+
+  useEffect(() => {
+    if (!remoteAlertsEnabled) return;
+
+    const intervalId = setInterval(() => {
+      syncRemotePartTimeAlerts({ notify: true });
+    }, 120000);
+
+    return () => clearInterval(intervalId);
+  }, [remoteAlertsEnabled, syncRemotePartTimeAlerts]);
+
+  const handleDiscoveryTabChange = (tab) => {
+    setDiscoveryTab(tab);
+  };
+
+  const handleRemoteOnlyPreferenceChange = (checked) => {
+    setRemoteOnlyPreferred(checked);
+    localStorage.setItem(REMOTE_VIEW_PREF_KEY, checked ? "1" : "0");
+
+    if (checked) {
+      setDiscoveryTab("remote");
+    }
+  };
+
+  const handleRemoteAlertsChange = (checked) => {
+    setRemoteAlertsEnabled(checked);
+    localStorage.setItem(REMOTE_ALERT_PREF_KEY, checked ? "1" : "0");
+  };
 
   const extractSalary = (salaryString) => {
     if (!salaryString) return 0;
@@ -206,7 +343,8 @@ export default function HomePage() {
   const clearAll = () => {
     setSearchQuery("");
     setSortBy("newest");
-    setIncludeRemotePartTime(false);
+    setDiscoveryTab(remoteOnlyPreferred ? "remote" : "all");
+    setNewRemoteMatchesCount(0);
     setFilters(DEFAULT_FILTERS);
   };
 
@@ -312,16 +450,61 @@ export default function HomePage() {
             placeholder="Search by title, subject, location, or skill..."
           />
 
-          <div className="mt-5 flex justify-center">
-            <label className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm">
-              <input
-                type="checkbox"
-                checked={includeRemotePartTime}
-                onChange={(e) => setIncludeRemotePartTime(e.target.checked)}
-                className="h-4 w-4 rounded border-white/50 text-[#FF6B00] focus:ring-[#FF6B00]"
-              />
-              Include remote part-time jobs
-            </label>
+          <div className="mt-5 flex flex-col items-center gap-3">
+            <div
+              className="inline-flex rounded-xl border border-white/20 bg-white/10 p-1"
+              role="tablist"
+              aria-label="Job discovery views"
+            >
+              <button
+                role="tab"
+                aria-selected={discoveryTab === "all"}
+                onClick={() => handleDiscoveryTabChange("all")}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  discoveryTab === "all"
+                    ? "bg-white text-slate-900"
+                    : "text-white hover:bg-white/20"
+                }`}
+              >
+                All Jobs
+              </button>
+              <button
+                role="tab"
+                aria-selected={discoveryTab === "remote"}
+                onClick={() => handleDiscoveryTabChange("remote")}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                  discoveryTab === "remote"
+                    ? "bg-[#FFC56F] text-slate-900"
+                    : "text-white hover:bg-white/20"
+                }`}
+              >
+                Remote Part-time Jobs
+              </button>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-100/95">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={remoteOnlyPreferred}
+                  onChange={(e) =>
+                    handleRemoteOnlyPreferenceChange(e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-white/50 text-[#FF6B00] focus:ring-[#FF6B00]"
+                />
+                Save Remote Part-time as my default view
+              </label>
+
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={remoteAlertsEnabled}
+                  onChange={(e) => handleRemoteAlertsChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-white/50 text-[#FF6B00] focus:ring-[#FF6B00]"
+                />
+                Alert me about new remote part-time jobs
+              </label>
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -364,7 +547,9 @@ export default function HomePage() {
             <p className="text-slate-600 mt-1">
               {searchQuery
                 ? `Results for \"${searchQuery}\"`
-                : "Browse all available teaching positions"}
+                : discoveryTab === "remote"
+                  ? "Remote part-time opportunities tailored to your profile"
+                  : "Browse all available teaching positions"}
             </p>
           </div>
 
@@ -397,6 +582,30 @@ export default function HomePage() {
             )}
           </div>
         </div>
+
+        {newRemoteMatchesCount > 0 && (
+          <div className="mb-6 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900 flex items-start justify-between gap-4">
+            <p className="text-sm font-medium">
+              {newRemoteMatchesCount} new remote part-time {newRemoteMatchesCount === 1 ? "job" : "jobs"} just matched your preferences.
+            </p>
+            <div className="flex items-center gap-3">
+              {discoveryTab !== "remote" && (
+                <button
+                  onClick={() => setDiscoveryTab("remote")}
+                  className="text-sm font-semibold underline"
+                >
+                  View now
+                </button>
+              )}
+              <button
+                onClick={() => setNewRemoteMatchesCount(0)}
+                className="text-sm font-semibold"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-1/4">
