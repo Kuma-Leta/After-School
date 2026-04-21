@@ -11,7 +11,9 @@ const ChatWindow = ({
   conversation,
   messages,
   onSendMessage,
+  onCloseThread,
   currentUserId,
+  currentUserRole,
 }) => {
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -47,6 +49,41 @@ const ChatWindow = ({
   const getOtherParticipants = () => {
     if (!conversation) return [];
     return conversation.participants.filter((p) => p.user_id !== currentUserId);
+  };
+
+  const isGovernedThread =
+    !!conversation?.is_governed_thread && !conversation?.is_group;
+  const threadState = conversation?.thread_state || "employer_initiated";
+  const isThreadClosed = threadState === "closed";
+  const isCandidateRole = ["teacher", "student"].includes(
+    (currentUserRole || "").toLowerCase(),
+  );
+  const isEmployerRole = ["school", "ngo", "family"].includes(
+    (currentUserRole || "").toLowerCase(),
+  );
+
+  const canSendInThread = !isGovernedThread
+    ? true
+    : isThreadClosed
+      ? false
+      : isCandidateRole
+        ? !!conversation?.initiated_by && conversation?.initiated_by !== currentUserId
+        : true;
+
+  const threadStateLabelMap = {
+    employer_initiated: "Employer initiated",
+    candidate_replied: "Candidate replied",
+    closed: "Closed",
+  };
+
+  const handleCloseThread = async () => {
+    if (!conversation?.id || !onCloseThread) return;
+
+    try {
+      await onCloseThread(conversation.id);
+    } catch (error) {
+      console.error("Failed to close thread:", error);
+    }
   };
 
   const getConversationName = () => {
@@ -150,12 +187,41 @@ const ChatWindow = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isGovernedThread && (
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${
+                  threadState === "closed"
+                    ? "bg-gray-100 text-gray-700"
+                    : threadState === "candidate_replied"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                {threadStateLabelMap[threadState] || "Thread"}
+              </span>
+            )}
+            {isGovernedThread && isEmployerRole && !isThreadClosed && (
+              <button
+                onClick={handleCloseThread}
+                className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-black"
+              >
+                Close Thread
+              </button>
+            )}
             <button className="p-2 hover:bg-gray-100 rounded-lg">
               <MoreVertical className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>
       </div>
+
+      {isGovernedThread && !canSendInThread && (
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm">
+          {isThreadClosed
+            ? "This thread is closed. Candidate replies are disabled."
+            : "Candidates can reply only to open employer-initiated threads."}
+        </div>
+      )}
 
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
@@ -268,13 +334,13 @@ const ChatWindow = ({
             }}
             placeholder="Type your message here..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-            disabled={isSending}
+            disabled={isSending || !canSendInThread}
           />
           <button
             onClick={handleSend}
-            disabled={isSending || !newMessage.trim()}
+            disabled={isSending || !newMessage.trim() || !canSendInThread}
             className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
-              isSending || !newMessage.trim()
+              isSending || !newMessage.trim() || !canSendInThread
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#FF1E00] text-white hover:bg-[#E01B00] transition-colors"
             }`}

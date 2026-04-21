@@ -10,6 +10,7 @@ import { MessageSquare, Users, Clock, TrendingUp } from "lucide-react";
 
 export default function MessagesPage() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
 
@@ -18,11 +19,11 @@ export default function MessagesPage() {
     messages,
     loading,
     error,
-    fetchConversations,
     fetchMessages,
     sendMessage,
     createConversation,
     markMessagesAsRead,
+    closeConversationThread,
   } = useChat();
 
   useEffect(() => {
@@ -31,6 +32,19 @@ export default function MessagesPage() {
         data: { user },
       } = await supabase.auth.getUser();
       setCurrentUser(user);
+
+      if (!user?.id) {
+        setCurrentUserRole(null);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setCurrentUserRole(profile?.role || null);
     };
     getUser();
   }, []);
@@ -67,11 +81,9 @@ export default function MessagesPage() {
     (sum, conv) => sum + (conv.unread_count || 0),
     0,
   );
-  const activeConversations = conversations.filter((conv) => {
-    const lastMessageTime = new Date(conv.last_message_at || conv.created_at);
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    return lastMessageTime > oneDayAgo;
-  }).length;
+  const activeConversations = conversations.filter(
+    (conv) => !!(conv.last_message_at || conv.created_at),
+  ).length;
   const responseRate =
     conversations.length > 0
       ? Math.round(
@@ -219,7 +231,9 @@ export default function MessagesPage() {
               conversation={selectedConversation}
               messages={messages[selectedConversation?.id] || []}
               onSendMessage={handleSendMessage}
+              onCloseThread={closeConversationThread}
               currentUserId={currentUser?.id || ""}
+              currentUserRole={currentUserRole}
             />
           </div>
         </div>

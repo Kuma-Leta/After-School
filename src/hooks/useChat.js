@@ -1,12 +1,41 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { getEmployerContactEntitlement } from "@/lib/services/contact-entitlement";
+import {
+  canCloseThread,
+  canInitiateThread,
+  evaluateSendPermission,
+  getInitialThreadState,
+  THREAD_STATES,
+} from "@/lib/chat/thread-governance";
 
 export const useChat = () => {
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const appendThreadAudit = useCallback(
+    async ({ conversationId, actorId, action, previousState, newState }) => {
+      if (!conversationId || !actorId || !action) return;
+
+      try {
+        await supabase.from("conversation_thread_audit").insert({
+          conversation_id: conversationId,
+          actor_id: actorId,
+          action,
+          previous_state: previousState || null,
+          new_state: newState || null,
+          metadata: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (auditError) {
+        console.error("Failed to write thread audit event:", auditError);
+      }
+    },
+    [],
+  );
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -150,6 +179,60 @@ export const useChat = () => {
 
         if (!userId) throw new Error("User not authenticated");
 
+        const [{ data: senderProfile, error: senderProfileError }, { data: conversation, error: conversationError }] =
+          await Promise.all([
+            supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", userId)
+              .single(),
+            supabase
+              .from("conversations")
+              .select(
+                `
+                *,
+                participants:conversation_participants(
+                  *,
+                  profile:profiles(id, role, full_name)
+                )
+                `,
+              )
+              .eq("id", conversationId)
+              .single(),
+          ]);
+
+        if (senderProfileError) throw senderProfileError;
+        if (conversationError) throw conversationError;
+
+        const permission = evaluateSendPermission({
+          conversation,
+          senderId: userId,
+          senderRole: senderProfile?.role,
+        });
+
+        if (!permission.allowed) {
+          throw new Error(permission.message || "You are not allowed to send to this thread.");
+        }
+
+        if (permission.nextState) {
+          await supabase
+            .from("conversations")
+            .update({
+              thread_state: permission.nextState,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conversationId);
+
+          await appendThreadAudit({
+            conversationId,
+            actorId: userId,
+            action: permission.auditAction || "state_transition",
+            previousState:
+              conversation?.thread_state || THREAD_STATES.EMPLOYER_INITIATED,
+            newState: permission.nextState,
+          });
+        }
+
         const { data, error } = await supabase
           .from("messages")
           .insert({
@@ -190,7 +273,7 @@ export const useChat = () => {
         throw err;
       }
     },
-    [],
+    [appendThreadAudit],
   );
 
   // Create a new conversation
@@ -213,6 +296,31 @@ export const useChat = () => {
         if (!session?.user) throw new Error("No active session");
 
         const userId = session.user.id;
+
+        const [{ data: initiatorProfile, error: initiatorProfileError }, { data: participantProfiles, error: participantProfilesError }] =
+          await Promise.all([
+            supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", userId)
+              .single(),
+            supabase
+              .from("profiles")
+              .select("id, role")
+              .in("id", participantIds || []),
+          ]);
+
+        if (initiatorProfileError) throw initiatorProfileError;
+        if (participantProfilesError) throw participantProfilesError;
+
+        const initiationPermission = canInitiateThread({
+          initiatorRole: initiatorProfile?.role,
+          participantRoles: (participantProfiles || []).map((profile) => profile.role),
+        });
+
+        if (!initiationPermission.allowed) {
+          throw new Error(initiationPermission.message);
+        }
 
         // Centralized contact entitlement check for each target participant.
         for (const participantId of participantIds || []) {
@@ -258,6 +366,32 @@ export const useChat = () => {
 
         if (fetchError) throw fetchError;
 
+        const initialGovernance = getInitialThreadState(fullConversation, userId);
+        if (initialGovernance) {
+          const { error: governanceUpdateError } = await supabase
+            .from("conversations")
+            .update({
+              is_governed_thread: true,
+              thread_state: initialGovernance.state,
+              initiated_by: initialGovernance.initiatedBy,
+              initiated_at: initialGovernance.initiatedAt,
+              closed_by: null,
+              closed_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conversation.id);
+
+          if (governanceUpdateError) throw governanceUpdateError;
+
+          await appendThreadAudit({
+            conversationId: conversation.id,
+            actorId: userId,
+            action: "employer_initiated",
+            previousState: null,
+            newState: initialGovernance.state,
+          });
+        }
+
         // 3. Refresh the conversations list
         await fetchConversations();
 
@@ -269,7 +403,96 @@ export const useChat = () => {
         throw err;
       }
     },
-    [canContactParticipant, fetchConversations],
+    [appendThreadAudit, canContactParticipant, fetchConversations],
+  );
+
+  const closeConversationThread = useCallback(
+    async (conversationId) => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user?.id) {
+          throw new Error("User not authenticated");
+        }
+
+        const [{ data: actorProfile, error: actorProfileError }, { data: conversation, error: conversationError }] =
+          await Promise.all([
+            supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .single(),
+            supabase
+              .from("conversations")
+              .select(
+                `
+                *,
+                participants:conversation_participants(
+                  *,
+                  profile:profiles(id, role, full_name)
+                )
+                `,
+              )
+              .eq("id", conversationId)
+              .single(),
+          ]);
+
+        if (actorProfileError) throw actorProfileError;
+        if (conversationError) throw conversationError;
+
+        const closePermission = canCloseThread({
+          conversation,
+          actorRole: actorProfile?.role,
+        });
+
+        if (!closePermission.allowed) {
+          throw new Error(closePermission.message || "You cannot close this thread.");
+        }
+
+        const previousState =
+          conversation?.thread_state || THREAD_STATES.EMPLOYER_INITIATED;
+
+        const { error: closeError } = await supabase
+          .from("conversations")
+          .update({
+            thread_state: THREAD_STATES.CLOSED,
+            closed_by: user.id,
+            closed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", conversationId);
+
+        if (closeError) throw closeError;
+
+        await appendThreadAudit({
+          conversationId,
+          actorId: user.id,
+          action: "thread_closed",
+          previousState,
+          newState: THREAD_STATES.CLOSED,
+        });
+
+        setConversations((prev) =>
+          prev.map((conversationItem) =>
+            conversationItem.id === conversationId
+              ? {
+                  ...conversationItem,
+                  thread_state: THREAD_STATES.CLOSED,
+                  closed_by: user.id,
+                  closed_at: new Date().toISOString(),
+                }
+              : conversationItem,
+          ),
+        );
+      } catch (closeThreadError) {
+        setError(closeThreadError.message || "Failed to close thread");
+        throw closeThreadError;
+      }
+    },
+    [appendThreadAudit],
   );
 
   // Set up real-time subscriptions
@@ -336,5 +559,6 @@ export const useChat = () => {
     sendMessage,
     createConversation,
     markMessagesAsRead,
+    closeConversationThread,
   };
 };

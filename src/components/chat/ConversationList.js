@@ -194,6 +194,19 @@ const ConversationList = ({
                           )?.profile?.role || "User"}
                         </span>
                       )}
+                      {!!conversation.is_governed_thread && (
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            conversation.thread_state === "closed"
+                              ? "bg-gray-100 text-gray-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {conversation.thread_state === "closed"
+                            ? "Closed"
+                            : "Governed"}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-500">
                         {conversation.participants.length} participant
                         {conversation.participants.length !== 1 ? "s" : ""}
