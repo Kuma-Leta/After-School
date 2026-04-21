@@ -61,11 +61,7 @@ export function getInitialThreadState(conversation, initiatorId) {
   };
 }
 
-export function evaluateSendPermission({
-  conversation,
-  senderId,
-  senderRole,
-}) {
+export function evaluateSendPermission({ conversation, senderId, senderRole }) {
   const { isGoverned } = getThreadParties(conversation);
 
   if (!isGoverned) {
@@ -78,7 +74,8 @@ export function evaluateSendPermission({
   if (currentState === THREAD_STATES.CLOSED) {
     return {
       allowed: false,
-      message: "This thread is closed. Candidates cannot reply to closed threads.",
+      message:
+        "This thread is closed. Candidates cannot reply to closed threads.",
       nextState: null,
       auditAction: null,
     };
@@ -88,7 +85,8 @@ export function evaluateSendPermission({
     if (!conversation?.initiated_by) {
       return {
         allowed: false,
-        message: "Candidate replies are allowed only on employer-initiated threads.",
+        message:
+          "Candidate replies are allowed only on employer-initiated threads.",
         nextState: null,
         auditAction: null,
       };

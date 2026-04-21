@@ -179,27 +179,25 @@ export const useChat = () => {
 
         if (!userId) throw new Error("User not authenticated");
 
-        const [{ data: senderProfile, error: senderProfileError }, { data: conversation, error: conversationError }] =
-          await Promise.all([
-            supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", userId)
-              .single(),
-            supabase
-              .from("conversations")
-              .select(
-                `
+        const [
+          { data: senderProfile, error: senderProfileError },
+          { data: conversation, error: conversationError },
+        ] = await Promise.all([
+          supabase.from("profiles").select("role").eq("id", userId).single(),
+          supabase
+            .from("conversations")
+            .select(
+              `
                 *,
                 participants:conversation_participants(
                   *,
                   profile:profiles(id, role, full_name)
                 )
                 `,
-              )
-              .eq("id", conversationId)
-              .single(),
-          ]);
+            )
+            .eq("id", conversationId)
+            .single(),
+        ]);
 
         if (senderProfileError) throw senderProfileError;
         if (conversationError) throw conversationError;
@@ -211,7 +209,9 @@ export const useChat = () => {
         });
 
         if (!permission.allowed) {
-          throw new Error(permission.message || "You are not allowed to send to this thread.");
+          throw new Error(
+            permission.message || "You are not allowed to send to this thread.",
+          );
         }
 
         if (permission.nextState) {
@@ -297,25 +297,25 @@ export const useChat = () => {
 
         const userId = session.user.id;
 
-        const [{ data: initiatorProfile, error: initiatorProfileError }, { data: participantProfiles, error: participantProfilesError }] =
-          await Promise.all([
-            supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", userId)
-              .single(),
-            supabase
-              .from("profiles")
-              .select("id, role")
-              .in("id", participantIds || []),
-          ]);
+        const [
+          { data: initiatorProfile, error: initiatorProfileError },
+          { data: participantProfiles, error: participantProfilesError },
+        ] = await Promise.all([
+          supabase.from("profiles").select("role").eq("id", userId).single(),
+          supabase
+            .from("profiles")
+            .select("id, role")
+            .in("id", participantIds || []),
+        ]);
 
         if (initiatorProfileError) throw initiatorProfileError;
         if (participantProfilesError) throw participantProfilesError;
 
         const initiationPermission = canInitiateThread({
           initiatorRole: initiatorProfile?.role,
-          participantRoles: (participantProfiles || []).map((profile) => profile.role),
+          participantRoles: (participantProfiles || []).map(
+            (profile) => profile.role,
+          ),
         });
 
         if (!initiationPermission.allowed) {
@@ -366,7 +366,10 @@ export const useChat = () => {
 
         if (fetchError) throw fetchError;
 
-        const initialGovernance = getInitialThreadState(fullConversation, userId);
+        const initialGovernance = getInitialThreadState(
+          fullConversation,
+          userId,
+        );
         if (initialGovernance) {
           const { error: governanceUpdateError } = await supabase
             .from("conversations")
@@ -418,27 +421,25 @@ export const useChat = () => {
           throw new Error("User not authenticated");
         }
 
-        const [{ data: actorProfile, error: actorProfileError }, { data: conversation, error: conversationError }] =
-          await Promise.all([
-            supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", user.id)
-              .single(),
-            supabase
-              .from("conversations")
-              .select(
-                `
+        const [
+          { data: actorProfile, error: actorProfileError },
+          { data: conversation, error: conversationError },
+        ] = await Promise.all([
+          supabase.from("profiles").select("role").eq("id", user.id).single(),
+          supabase
+            .from("conversations")
+            .select(
+              `
                 *,
                 participants:conversation_participants(
                   *,
                   profile:profiles(id, role, full_name)
                 )
                 `,
-              )
-              .eq("id", conversationId)
-              .single(),
-          ]);
+            )
+            .eq("id", conversationId)
+            .single(),
+        ]);
 
         if (actorProfileError) throw actorProfileError;
         if (conversationError) throw conversationError;
@@ -449,7 +450,9 @@ export const useChat = () => {
         });
 
         if (!closePermission.allowed) {
-          throw new Error(closePermission.message || "You cannot close this thread.");
+          throw new Error(
+            closePermission.message || "You cannot close this thread.",
+          );
         }
 
         const previousState =

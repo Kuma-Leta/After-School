@@ -67,7 +67,8 @@ const ChatWindow = ({
     : isThreadClosed
       ? false
       : isCandidateRole
-        ? !!conversation?.initiated_by && conversation?.initiated_by !== currentUserId
+        ? !!conversation?.initiated_by &&
+          conversation?.initiated_by !== currentUserId
         : true;
 
   const threadStateLabelMap = {
