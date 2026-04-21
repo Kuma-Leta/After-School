@@ -20,6 +20,7 @@ export default function ApplicationsPage() {
     } else if (!authLoading && !user) {
       router.push("/login");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, router, filter]);
 
   async function loadUserProfile() {
@@ -293,15 +294,21 @@ export default function ApplicationsPage() {
 
   const updateApplicationStatus = async (applicationId, newStatus) => {
     try {
-      const { error } = await supabase
-        .from("applications")
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", applicationId);
+      const response = await fetch(
+        `/api/applications/${applicationId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        },
+      );
 
-      if (error) throw error;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to update status");
+      }
 
       await loadUserProfileAndApplications();
     } catch (error) {

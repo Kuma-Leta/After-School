@@ -49,38 +49,25 @@ export async function getJobApplicants(jobId) {
 
 // Update application status
 export async function updateApplicationStatus(applicationId, status) {
-  const updateData = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
+  const response = await fetch(`/api/applications/${applicationId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
 
-  if (status === "reviewed") {
-    updateData.reviewed_at = new Date().toISOString();
-  } else if (status === "hired") {
-    updateData.hired_at = new Date().toISOString();
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error || "Failed to update application status.");
   }
 
-  const { data, error } = await supabase
-    .from("applications")
-    .update(updateData)
-    .eq("id", applicationId)
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  return data;
+  return payload?.application;
 }
 
 // Mark job as filled
 export async function markJobAsFilled(jobId) {
-  const { error } = await supabase
-    .from("jobs")
-    .update({
-      is_filled: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", jobId);
-
-  if (error) throw error;
+  throw new Error(
+    "markJobAsFilled is no longer supported directly. Use application status API with status='hired'.",
+  );
 }

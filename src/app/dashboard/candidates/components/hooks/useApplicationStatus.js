@@ -1,6 +1,5 @@
 // app/dashboard/candidates/components/hooks/useApplicationStatus.js
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
 import { createNotification } from "@/lib/supabase/notifications";
 
 export function useApplicationStatus() {
@@ -21,28 +20,25 @@ export function useApplicationStatus() {
     setError(null);
 
     try {
-      // Prepare update data
-      const updateData = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      };
+      const response = await fetch(
+        `/api/applications/${applicationId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus }),
+        },
+      );
 
-      // Add timestamps for specific statuses
-      if (newStatus === "reviewed") {
-        updateData.reviewed_at = new Date().toISOString();
-      } else if (newStatus === "hired") {
-        updateData.hired_at = new Date().toISOString();
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          payload?.error || "Failed to update application status.",
+        );
       }
 
-      // Update in database
-      const { data, error: updateError } = await supabase
-        .from("applications")
-        .update(updateData)
-        .eq("id", applicationId)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
+      const data = payload?.application;
 
       // Send notification if applicant ID is provided
       if (applicantId) {
@@ -56,11 +52,6 @@ export function useApplicationStatus() {
           jobId,
           organizationId,
         });
-      }
-
-      // If hired, mark job as filled
-      if (newStatus === "hired" && jobId) {
-        await markJobAsFilled(jobId);
       }
 
       return { success: true, data };
@@ -117,21 +108,6 @@ export function useApplicationStatus() {
     } catch (err) {
       console.warn("Failed to send notification:", err);
       // Don't fail the whole operation if notification fails
-    }
-  };
-
-  // Mark job as filled
-  const markJobAsFilled = async (jobId) => {
-    try {
-      await supabase
-        .from("jobs")
-        .update({
-          is_filled: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
-    } catch (err) {
-      console.warn("Failed to mark job as filled:", err);
     }
   };
 

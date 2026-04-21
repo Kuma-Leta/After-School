@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isJobVisibleToUser, normalizeLocation } from "@/lib/jobs/visibility";
-import { normalizeJobModel, validateJobModel } from "@/lib/jobs/model";
-
-const TALENT_ROLES = ["teacher", "student"];
+import { validateJobModel } from "@/lib/jobs/model";
+import {
+  evaluateJobVisibilityPolicy,
+  isTalentRole,
+} from "@/lib/policies/access-control";
+import { requireActorContext } from "@/lib/policies/policy-middleware";
 
 function isDeadlineActive(job) {
   if (!job?.application_deadline) return true;
@@ -45,9 +47,9 @@ export async function GET(request) {
     const includeRemotePartTime =
       searchParams.get("includeRemotePartTime") === "true";
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const actorContext = await requireActorContext(supabase);
+    const user = actorContext.ok ? actorContext.actor : null;
+    const profile = actorContext.ok ? actorContext.profile : null;
 
     const { data: jobsData, error: jobsError } = await supabase
       .from("jobs")
@@ -81,44 +83,45 @@ export async function GET(request) {
       });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, location")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      return NextResponse.json(
-        { error: "Failed to load user profile" },
-        { status: 500 },
-      );
-    }
-
     const role = (profile?.role || "").toLowerCase();
-    const userLocation = normalizeLocation(profile?.location);
-
     let visibleJobs = validJobs;
 
-    if (TALENT_ROLES.includes(role)) {
-      if (!userLocation) {
+    if (isTalentRole(role) && validJobs.length > 0) {
+      const firstCheck = evaluateJobVisibilityPolicy({
+        job: validJobs[0],
+        userProfile: profile,
+        includeRemotePartTime,
+      });
+
+      if (
+        !firstCheck.allowed &&
+        firstCheck.reason === "missing_user_location"
+      ) {
         return NextResponse.json(
           {
             jobs: [],
             policy: {
               enforced: true,
               includeRemotePartTime,
-              reason: "missing_user_location",
+              reason: firstCheck.reason,
             },
-            message:
-              "Set your city or living address in your profile to view jobs.",
+            message: firstCheck.message,
           },
           { status: 200 },
         );
       }
 
-      visibleJobs = validJobs.filter((job) =>
-        isJobVisibleToUser(job, userLocation, { includeRemotePartTime }),
-      );
+      visibleJobs = validJobs
+        .map((job) => ({
+          job,
+          policy: evaluateJobVisibilityPolicy({
+            job,
+            userProfile: profile,
+            includeRemotePartTime,
+          }),
+        }))
+        .filter((entry) => entry.policy.allowed)
+        .map((entry) => entry.policy.normalizedJob || entry.job);
     }
 
     const enrichedJobs = await enrichJobsWithOrganizations(
@@ -129,9 +132,9 @@ export async function GET(request) {
     return NextResponse.json({
       jobs: enrichedJobs,
       policy: {
-        enforced: TALENT_ROLES.includes(role),
+        enforced: isTalentRole(role),
         includeRemotePartTime,
-        userLocation,
+        userLocation: profile?.location || null,
       },
     });
   } catch (error) {

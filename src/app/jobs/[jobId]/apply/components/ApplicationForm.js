@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function ApplicationForm({ job, profile }) {
@@ -30,34 +29,22 @@ export default function ApplicationForm({ job, profile }) {
     setSuccess("");
 
     try {
-      // First, check if the user has already applied for this job
-      const { data: existingApplication, error: checkError } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("job_id", job.id)
-        .eq("applicant_id", profile.id)
-        .maybeSingle();
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          coverLetter: formData.cover_letter,
+          resumeUrl: formData.resume_url,
+        }),
+      });
 
-      if (checkError) throw checkError;
-
-      if (existingApplication) {
-        setError("You have already applied for this job.");
-        setSubmitting(false);
-        return;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to submit application.");
       }
-
-      // Create the application
-      const { error: applicationError } = await supabase
-        .from("applications")
-        .insert({
-          job_id: job.id,
-          applicant_id: profile.id,
-          cover_letter: formData.cover_letter,
-          resume_url: formData.resume_url, // This will be empty for now
-          status: "pending",
-        });
-
-      if (applicationError) throw applicationError;
 
       setSuccess("Application submitted successfully!");
 

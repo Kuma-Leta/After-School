@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/features/admin/server/auth";
-import { evaluateEmployerContactEntitlement } from "@/lib/policies/contact-entitlement";
+import { evaluateContactInitiationPolicy } from "@/lib/policies/access-control";
+import { requireActorContext } from "@/lib/policies/policy-middleware";
 
 export async function GET(request) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actorContext = await requireActorContext(supabase);
+    if (!actorContext.ok) {
+      return actorContext.response;
     }
 
     const { searchParams } = new URL(request.url);
@@ -28,17 +25,17 @@ export async function GET(request) {
     }
 
     const adminClient = createServiceRoleClient();
-    const policyResult = await evaluateEmployerContactEntitlement({
+    const policyResult = await evaluateContactInitiationPolicy({
       supabase,
       adminClient,
-      employerId: user.id,
+      employerId: actorContext.actor.id,
       candidateId,
       requireApplication,
     });
 
     return NextResponse.json({
       ...policyResult,
-      employerId: user.id,
+      employerId: actorContext.actor.id,
       candidateId,
       requireApplication,
     });

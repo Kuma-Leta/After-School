@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { getEmployerContactEntitlement } from "@/lib/services/contact-entitlement";
 import {
   canCloseThread,
-  canInitiateThread,
   evaluateSendPermission,
-  getInitialThreadState,
   THREAD_STATES,
 } from "@/lib/chat/thread-governance";
 
@@ -278,135 +275,38 @@ export const useChat = () => {
 
   // Create a new conversation
   // In useChat.js - improved createConversation
-  const canContactParticipant = useCallback(async (candidateId) => {
-    return getEmployerContactEntitlement({
-      candidateId,
-      requireApplication: true,
-    });
-  }, []);
-
   const createConversation = useCallback(
     async (participantIds, isGroup = false, name, avatarUrl) => {
       try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (!session?.user) throw new Error("No active session");
-
-        const userId = session.user.id;
-
-        const [
-          { data: initiatorProfile, error: initiatorProfileError },
-          { data: participantProfiles, error: participantProfilesError },
-        ] = await Promise.all([
-          supabase.from("profiles").select("role").eq("id", userId).single(),
-          supabase
-            .from("profiles")
-            .select("id, role")
-            .in("id", participantIds || []),
-        ]);
-
-        if (initiatorProfileError) throw initiatorProfileError;
-        if (participantProfilesError) throw participantProfilesError;
-
-        const initiationPermission = canInitiateThread({
-          initiatorRole: initiatorProfile?.role,
-          participantRoles: (participantProfiles || []).map(
-            (profile) => profile.role,
-          ),
+        const response = await fetch("/api/chat/conversations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            participantIds,
+            isGroup,
+            name,
+            avatarUrl,
+          }),
         });
 
-        if (!initiationPermission.allowed) {
-          throw new Error(initiationPermission.message);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to create conversation");
         }
 
-        // Centralized contact entitlement check for each target participant.
-        for (const participantId of participantIds || []) {
-          if (!participantId || participantId === userId) continue;
-
-          const entitlement = await canContactParticipant(participantId);
-          if (!entitlement.allowed) {
-            throw new Error(
-              entitlement.message ||
-                "You are not allowed to contact this candidate.",
-            );
-          }
-        }
-
-        // 1. Create conversation via RPC (returns basic fields)
-        const { data: conversation, error } = await supabase.rpc(
-          "create_conversation_with_participants",
-          {
-            p_is_group: isGroup,
-            p_name: name || null,
-            p_avatar_url: avatarUrl || null,
-            p_participant_ids: [userId, ...participantIds],
-            p_creator_id: userId,
-          },
-        );
-
-        if (error) throw error;
-
-        // 2. Fetch the full conversation with participants and profiles
-        const { data: fullConversation, error: fetchError } = await supabase
-          .from("conversations")
-          .select(
-            `
-        *,
-        participants:conversation_participants(
-          *,
-          profile:profiles(*)
-        )
-      `,
-          )
-          .eq("id", conversation.id)
-          .single();
-
-        if (fetchError) throw fetchError;
-
-        const initialGovernance = getInitialThreadState(
-          fullConversation,
-          userId,
-        );
-        if (initialGovernance) {
-          const { error: governanceUpdateError } = await supabase
-            .from("conversations")
-            .update({
-              is_governed_thread: true,
-              thread_state: initialGovernance.state,
-              initiated_by: initialGovernance.initiatedBy,
-              initiated_at: initialGovernance.initiatedAt,
-              closed_by: null,
-              closed_at: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", conversation.id);
-
-          if (governanceUpdateError) throw governanceUpdateError;
-
-          await appendThreadAudit({
-            conversationId: conversation.id,
-            actorId: userId,
-            action: "employer_initiated",
-            previousState: null,
-            newState: initialGovernance.state,
-          });
-        }
-
-        // 3. Refresh the conversations list
+        // Refresh the conversations list
         await fetchConversations();
 
-        // 4. Return the FULL conversation object
-        return fullConversation;
+        return payload?.conversation;
       } catch (err) {
         console.error("Create conversation error:", err.message || err);
         setError(err.message || "Failed to create conversation");
         throw err;
       }
     },
-    [appendThreadAudit, canContactParticipant, fetchConversations],
+    [fetchConversations],
   );
 
   const closeConversationThread = useCallback(
