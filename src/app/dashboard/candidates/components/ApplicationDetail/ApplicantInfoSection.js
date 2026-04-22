@@ -3,16 +3,15 @@
 
 import {
   User,
-  Mail,
   Phone,
   MapPin,
   Calendar,
   FileText,
   Download,
   Globe,
-  UserCircle,
   Star,
 } from "lucide-react";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 export default function ApplicantInfoSection({ applicant, application, job }) {
   const calculateAge = (dateOfBirth) => {
@@ -54,6 +53,7 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
     averageScore: 0,
     reviewCount: 0,
   };
+  const avatarSrc = resolveAvatarSrc(applicant?.avatarUrl);
 
   return (
     <div className="space-y-6">
@@ -61,15 +61,12 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-start space-x-4">
           <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            {applicant.avatarUrl ? (
-              <img
-                src={applicant.avatarUrl}
-                alt={applicant.fullName}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-            ) : (
-              <UserCircle className="h-12 w-12 text-blue-600" />
-            )}
+            <div
+              role="img"
+              aria-label={applicant.fullName || "Default profile avatar"}
+              className="h-16 w-16 rounded-full bg-center bg-cover"
+              style={{ backgroundImage: `url(${avatarSrc})` }}
+            />
           </div>
           <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900">

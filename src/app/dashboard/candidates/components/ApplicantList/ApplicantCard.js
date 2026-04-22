@@ -1,5 +1,6 @@
 // app/dashboard/candidates/components/ApplicantList/ApplicantCard.js
-import { User, Calendar, MapPin, FileText, Star } from "lucide-react";
+import { Calendar, MapPin, FileText, Star } from "lucide-react";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 const getStatusColor = (status) => {
   const colors = {
@@ -18,6 +19,7 @@ export default function ApplicantCard({ applicant, onClick }) {
     averageScore: 0,
     reviewCount: 0,
   };
+  const avatarSrc = resolveAvatarSrc(applicant?.applicant?.avatarUrl);
 
   return (
     <div
@@ -26,15 +28,14 @@ export default function ApplicantCard({ applicant, onClick }) {
     >
       <div className="flex items-start space-x-4 mb-4">
         <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-          {applicant.applicant.avatarUrl ? (
-            <img
-              src={applicant.applicant.avatarUrl}
-              alt={applicant.applicant.fullName}
-              className="h-12 w-12 rounded-full"
-            />
-          ) : (
-            <User className="h-6 w-6 text-blue-600" />
-          )}
+          <div
+            role="img"
+            aria-label={
+              applicant.applicant.fullName || "Default profile avatar"
+            }
+            className="h-12 w-12 rounded-full bg-center bg-cover"
+            style={{ backgroundImage: `url(${avatarSrc})` }}
+          />
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900">

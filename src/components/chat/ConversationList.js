@@ -1,5 +1,6 @@
 import React from "react";
 import { UserCircle, Users, School, Building } from "lucide-react";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 const ConversationList = ({
   conversations,
@@ -22,28 +23,33 @@ const ConversationList = ({
 
   const getConversationAvatar = (conversation) => {
     if (conversation.is_group) {
-      if (conversation.avatar_url) {
-        return (
-          <img
-            src={conversation.avatar_url}
-            alt={conversation.name || "Group"}
-            className="w-12 h-12 rounded-full object-cover"
-          />
-        );
-      }
-      return <Users className="w-12 h-12 text-gray-400" />;
+      return (
+        <div
+          role="img"
+          aria-label={conversation.name || "Group"}
+          className="w-12 h-12 rounded-full bg-center bg-cover"
+          style={{
+            backgroundImage: `url(${resolveAvatarSrc(conversation.avatar_url)})`,
+          }}
+        />
+      );
     }
 
     const otherParticipant = conversation.participants.find(
       (p) => p.user_id !== currentUserId,
     );
 
-    if (otherParticipant?.profile?.avatar_url) {
+    if (otherParticipant) {
       return (
-        <img
-          src={otherParticipant.profile.avatar_url}
-          alt={otherParticipant.profile.full_name || "User"}
-          className="w-12 h-12 rounded-full object-cover"
+        <div
+          role="img"
+          aria-label={
+            otherParticipant?.profile?.full_name || "Default profile avatar"
+          }
+          className="w-12 h-12 rounded-full bg-center bg-cover"
+          style={{
+            backgroundImage: `url(${resolveAvatarSrc(otherParticipant?.profile?.avatar_url)})`,
+          }}
         />
       );
     }

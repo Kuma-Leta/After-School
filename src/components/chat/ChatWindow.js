@@ -6,6 +6,7 @@ import {
   Smile,
   MoreVertical,
 } from "lucide-react";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 const ChatWindow = ({
   conversation,
@@ -151,18 +152,28 @@ const ChatWindow = ({
                     </span>
                   </div>
                 ) : otherParticipants[0]?.profile?.avatar_url ? (
-                  <img
-                    src={otherParticipants[0].profile.avatar_url}
-                    alt={otherParticipants[0].profile.full_name || "User"}
-                    className="w-10 h-10 object-cover"
+                  <div
+                    role="img"
+                    aria-label={
+                      otherParticipants[0].profile.full_name || "User"
+                    }
+                    className="w-10 h-10 bg-center bg-cover"
+                    style={{
+                      backgroundImage: `url(${resolveAvatarSrc(otherParticipants[0].profile.avatar_url)})`,
+                    }}
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-600 font-medium">
-                      {otherParticipants[0]?.profile?.full_name?.charAt(0) ||
-                        "U"}
-                    </span>
-                  </div>
+                  <div
+                    role="img"
+                    aria-label={
+                      otherParticipants[0]?.profile?.full_name ||
+                      "Default profile avatar"
+                    }
+                    className="w-10 h-10 bg-center bg-cover"
+                    style={{
+                      backgroundImage: `url(${resolveAvatarSrc(otherParticipants[0]?.profile?.avatar_url)})`,
+                    }}
+                  />
                 )}
               </div>
             </div>

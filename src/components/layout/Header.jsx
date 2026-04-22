@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { resolveAvatarSrc } from "@/lib/avatar";
 import {
   Bell,
   User,
@@ -96,15 +97,14 @@ export default function Header() {
                         className="flex items-center space-x-2 focus:outline-none"
                       >
                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                          {user.user_metadata?.avatar_url ? (
-                            <img
-                              src={user.user_metadata.avatar_url}
-                              alt={user.email}
-                              className="w-8 h-8 object-cover"
-                            />
-                          ) : (
-                            <User className="w-5 h-5 text-gray-600" />
-                          )}
+                          <div
+                            role="img"
+                            aria-label={user.email || "Default profile avatar"}
+                            className="w-8 h-8 bg-center bg-cover"
+                            style={{
+                              backgroundImage: `url(${resolveAvatarSrc(user.user_metadata?.avatar_url)})`,
+                            }}
+                          />
                         </div>
                       </button>
 
@@ -193,15 +193,14 @@ export default function Header() {
                 <>
                   <div className="flex items-center space-x-3 px-2 py-2">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                      {user.user_metadata?.avatar_url ? (
-                        <img
-                          src={user.user_metadata.avatar_url}
-                          alt={user.email}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-5 h-5 text-gray-600" />
-                      )}
+                      <div
+                        role="img"
+                        aria-label={user.email || "Default profile avatar"}
+                        className="w-8 h-8 rounded-full bg-center bg-cover"
+                        style={{
+                          backgroundImage: `url(${resolveAvatarSrc(user.user_metadata?.avatar_url)})`,
+                        }}
+                      />
                     </div>
                     <span className="text-sm text-gray-900 truncate max-w-[200px]">
                       {user.email}

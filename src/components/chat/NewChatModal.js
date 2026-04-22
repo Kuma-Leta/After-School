@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { X, Search, UserPlus } from "lucide-react";
 import { getEmployerContactEntitlement } from "@/lib/services/contact-entitlement";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 const NewChatModal = ({
   isOpen,
@@ -256,17 +257,14 @@ const NewChatModal = ({
                     }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                      {user.avatar_url ? (
-                        <img
-                          src={user.avatar_url}
-                          alt={user.full_name}
-                          className="w-10 h-10 object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-600 font-medium">
-                          {user.full_name?.charAt(0) || "U"}
-                        </span>
-                      )}
+                      <div
+                        role="img"
+                        aria-label={user.full_name || "Default profile avatar"}
+                        className="w-10 h-10 bg-center bg-cover"
+                        style={{
+                          backgroundImage: `url(${resolveAvatarSrc(user.avatar_url)})`,
+                        }}
+                      />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">

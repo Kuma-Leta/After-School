@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { setupStorageBucket } from "@/lib/supabase/storageSetup";
+import { resolveAvatarSrc } from "@/lib/avatar";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -20,108 +21,116 @@ export default function ProfilePage() {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const avatarSrc = resolveAvatarSrc(profile?.avatar_url);
 
-  const loadProfile = useCallback(async (userId) => {
-    try {
-      setLoading(true);
-      setError("");
+  const loadProfile = useCallback(
+    async (userId) => {
+      try {
+        setLoading(true);
+        setError("");
 
-      // Load main profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+        // Load main profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
 
-      if (profileError) {
-        console.error("Profile error:", profileError);
-        throw profileError;
-      }
+        if (profileError) {
+          console.error("Profile error:", profileError);
+          throw profileError;
+        }
 
-      if (!profileData) {
-        // Create default profile if doesn't exist
-        const newProfile = {
-          id: userId,
-          email: user?.email || "",
-          full_name: "",
-          role: "teacher",
-          phone: "",
-          location: "",
-          gender: "",
-          languages: [],
-          bio: "",
-          date_of_birth: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setProfile(newProfile);
-        setRoleDetails({});
-        return;
-      }
+        if (!profileData) {
+          // Create default profile if doesn't exist
+          const newProfile = {
+            id: userId,
+            email: user?.email || "",
+            full_name: "",
+            role: "teacher",
+            phone: "",
+            location: "",
+            gender: "",
+            languages: [],
+            bio: "",
+            date_of_birth: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          setProfile(newProfile);
+          setRoleDetails({});
+          return;
+        }
 
-      setProfile(profileData);
+        setProfile(profileData);
 
-      if (["teacher", "student"].includes((profileData.role || "").toLowerCase())) {
-        const { data: ratingRows, error: ratingError } = await supabase
-          .from("placement_feedback_reviews")
-          .select("rating")
-          .eq("candidate_id", userId);
+        if (
+          ["teacher", "student"].includes(
+            (profileData.role || "").toLowerCase(),
+          )
+        ) {
+          const { data: ratingRows, error: ratingError } = await supabase
+            .from("placement_feedback_reviews")
+            .select("rating")
+            .eq("candidate_id", userId);
 
-        if (!ratingError) {
-          const total = (ratingRows || []).reduce(
-            (sum, row) => sum + Number(row.rating || 0),
-            0,
-          );
-          const count = (ratingRows || []).length;
-          setCandidateRatingSummary({
-            averageScore: count > 0 ? total / count : 0,
-            reviewCount: count,
-          });
+          if (!ratingError) {
+            const total = (ratingRows || []).reduce(
+              (sum, row) => sum + Number(row.rating || 0),
+              0,
+            );
+            const count = (ratingRows || []).length;
+            setCandidateRatingSummary({
+              averageScore: count > 0 ? total / count : 0,
+              reviewCount: count,
+            });
+          } else {
+            setCandidateRatingSummary({ averageScore: 0, reviewCount: 0 });
+          }
         } else {
           setCandidateRatingSummary({ averageScore: 0, reviewCount: 0 });
         }
-      } else {
-        setCandidateRatingSummary({ averageScore: 0, reviewCount: 0 });
-      }
 
-      // Load role-specific details
-      const roleTable = getRoleTable(profileData.role);
-      if (roleTable) {
-        console.log(`Loading from ${roleTable} for user ${userId}`);
+        // Load role-specific details
+        const roleTable = getRoleTable(profileData.role);
+        if (roleTable) {
+          console.log(`Loading from ${roleTable} for user ${userId}`);
 
-        const { data: roleData, error: roleError } = await supabase
-          .from(roleTable)
-          .select("*")
-          .or(`id.eq.${userId},user_id.eq.${userId}`)
-          .maybeSingle();
+          const { data: roleData, error: roleError } = await supabase
+            .from(roleTable)
+            .select("*")
+            .or(`id.eq.${userId},user_id.eq.${userId}`)
+            .maybeSingle();
 
-        if (roleError) {
-          console.warn(`Role details error for ${roleTable}:`, roleError);
+          if (roleError) {
+            console.warn(`Role details error for ${roleTable}:`, roleError);
 
-          // If table doesn't exist or has no data, use empty object
-          if (
-            roleError.code === "PGRST116" ||
-            roleError.message.includes("does not exist")
-          ) {
-            console.log(`No data found in ${roleTable}, using empty object`);
-            setRoleDetails({});
+            // If table doesn't exist or has no data, use empty object
+            if (
+              roleError.code === "PGRST116" ||
+              roleError.message.includes("does not exist")
+            ) {
+              console.log(`No data found in ${roleTable}, using empty object`);
+              setRoleDetails({});
+            } else {
+              throw roleError;
+            }
           } else {
-            throw roleError;
+            console.log(`Loaded role data:`, roleData);
+            setRoleDetails(roleData || {});
           }
         } else {
-          console.log(`Loaded role data:`, roleData);
-          setRoleDetails(roleData || {});
+          setRoleDetails({});
         }
-      } else {
-        setRoleDetails({});
+      } catch (err) {
+        console.error("Profile load error:", err);
+        setError("Failed to load profile: " + err.message);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Profile load error:", err);
-      setError("Failed to load profile: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.email]);
+    },
+    [user?.email],
+  );
 
   useEffect(() => {
     async function loadData() {
@@ -316,19 +325,16 @@ export default function ProfilePage() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="text-center">
                 <div className="w-32 h-32 bg-gray-200 rounded-full mx-auto mb-4 overflow-hidden">
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.full_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-[#FF1E00] flex items-center justify-center text-white text-4xl font-bold">
-                      {profile?.full_name?.charAt(0) ||
-                        profile?.email?.charAt(0) ||
-                        "U"}
-                    </div>
-                  )}
+                  <div
+                    role="img"
+                    aria-label={
+                      profile?.full_name ||
+                      profile?.email ||
+                      "Default profile avatar"
+                    }
+                    className="w-full h-full bg-center bg-cover"
+                    style={{ backgroundImage: `url(${avatarSrc})` }}
+                  />
                 </div>
                 <h2 className="text-xl font-bold text-[#1F1F1F]">
                   {profile?.full_name || "No Name Provided"}
@@ -356,14 +362,17 @@ export default function ProfilePage() {
                   </span>
                 </div>
 
-                {["teacher", "student"].includes((profile?.role || "").toLowerCase()) && (
+                {["teacher", "student"].includes(
+                  (profile?.role || "").toLowerCase(),
+                ) && (
                   <div className="mt-3 text-sm text-gray-700">
                     {candidateRatingSummary.reviewCount > 0 ? (
                       <p className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-amber-800 font-medium">
                         <span className="mr-1">★</span>
                         {candidateRatingSummary.averageScore.toFixed(1)} / 5
                         <span className="ml-2 text-amber-700">
-                          ({candidateRatingSummary.reviewCount} review{candidateRatingSummary.reviewCount > 1 ? "s" : ""})
+                          ({candidateRatingSummary.reviewCount} review
+                          {candidateRatingSummary.reviewCount > 1 ? "s" : ""})
                         </span>
                       </p>
                     ) : (
