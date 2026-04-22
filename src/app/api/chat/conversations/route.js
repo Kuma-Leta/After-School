@@ -5,7 +5,12 @@ import {
   canInitiateThread,
   getInitialThreadState,
 } from "@/lib/chat/thread-governance";
-import { evaluateContactInitiationPolicy } from "@/lib/policies/access-control";
+import {
+  evaluateContactInitiationPolicy,
+  isEmployerRole,
+  isTalentRole,
+} from "@/lib/policies/access-control";
+import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import {
   denyWithPolicy,
   requireActorContext,
@@ -38,6 +43,7 @@ export async function POST(request) {
     const dedupedParticipants = Array.from(
       new Set([actorContext.actor.id, ...participantIds]),
     );
+    const policyControls = await loadEffectivePolicyControls();
 
     const { data: participantProfiles, error: participantProfilesError } =
       await supabase
@@ -61,6 +67,8 @@ export async function POST(request) {
       participantRoles: (participantProfiles || []).map(
         (profile) => profile.role,
       ),
+      allowCandidateInitiatedEmployerMessages:
+        policyControls.allowCandidateInitiatedEmployerMessages,
     });
 
     if (!initiationPermission.allowed) {
@@ -72,11 +80,20 @@ export async function POST(request) {
       });
     }
 
-    if (!isGroup) {
+    if (!isGroup && isEmployerRole(actorContext.profile?.role)) {
       const adminClient = createServiceRoleClient();
+      const participantRoleMap = new Map(
+        (participantProfiles || []).map((profile) => [
+          profile.id,
+          (profile.role || "").toLowerCase(),
+        ]),
+      );
 
       for (const participantId of participantIds) {
         if (!participantId || participantId === actorContext.actor.id) continue;
+
+        const participantRole = participantRoleMap.get(participantId);
+        if (!isTalentRole(participantRole)) continue;
 
         const contactPolicy = await evaluateContactInitiationPolicy({
           supabase,
@@ -84,6 +101,8 @@ export async function POST(request) {
           employerId: actorContext.actor.id,
           candidateId: participantId,
           requireApplication: true,
+          subscriptionRequiredForEmployerContact:
+            policyControls.subscriptionRequiredForEmployerContact,
         });
 
         if (!contactPolicy.allowed) {

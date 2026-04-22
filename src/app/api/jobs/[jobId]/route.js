@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateJobVisibilityPolicy } from "@/lib/policies/access-control";
+import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import {
   denyWithPolicy,
   requireActorContext,
@@ -31,6 +32,8 @@ export async function GET(request, { params }) {
       return actorContext.response;
     }
 
+    const policyControls = await loadEffectivePolicyControls();
+
     const profile = actorContext.profile;
 
     const { data: job, error: jobError } = await supabase
@@ -56,6 +59,7 @@ export async function GET(request, { params }) {
       userProfile: profile,
       includeRemotePartTime,
       candidateRemotePreference,
+      allowCrossCityBrowsing: policyControls.allowCrossCityBrowsing,
     });
 
     if (!visibilityPolicy.allowed) {

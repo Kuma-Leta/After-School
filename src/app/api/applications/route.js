@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateApplicationEligibility } from "@/lib/policies/access-control";
+import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import {
   denyWithPolicy,
   requireActorContext,
@@ -17,6 +18,7 @@ export async function POST(request) {
 
     const body = await request.json().catch(() => ({}));
     const { jobId, coverLetter, resumeUrl } = body;
+    const policyControls = await loadEffectivePolicyControls();
 
     const eligibility = await evaluateApplicationEligibility({
       supabase,
@@ -24,6 +26,7 @@ export async function POST(request) {
       applicantProfile: actorContext.profile,
       jobId,
       includeRemotePartTime: true,
+      allowCrossCityBrowsing: policyControls.allowCrossCityBrowsing,
     });
 
     if (!eligibility.allowed) {

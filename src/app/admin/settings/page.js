@@ -1,7 +1,7 @@
 "use client";
 
-import UniversalSettings from "@/components/settings/UniversalSettings";
+import AdminPolicyControlsPanel from "@/features/admin/components/AdminPolicyControlsPanel";
 
 export default function AdminSettingsPage() {
-  return <UniversalSettings />;
+  return <AdminPolicyControlsPanel />;
 }

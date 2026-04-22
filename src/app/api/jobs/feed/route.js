@@ -5,6 +5,7 @@ import {
   evaluateJobVisibilityPolicy,
   isTalentRole,
 } from "@/lib/policies/access-control";
+import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
 
 function isDeadlineActive(job) {
@@ -52,6 +53,7 @@ export async function GET(request) {
     const actorContext = await requireActorContext(supabase);
     const user = actorContext.ok ? actorContext.actor : null;
     const profile = actorContext.ok ? actorContext.profile : null;
+    const policyControls = await loadEffectivePolicyControls();
 
     const { data: jobsData, error: jobsError } = await supabase
       .from("jobs")
@@ -94,6 +96,7 @@ export async function GET(request) {
         userProfile: profile,
         includeRemotePartTime,
         candidateRemotePreference,
+        allowCrossCityBrowsing: policyControls.allowCrossCityBrowsing,
       });
 
       if (
@@ -123,6 +126,7 @@ export async function GET(request) {
             userProfile: profile,
             includeRemotePartTime,
             candidateRemotePreference,
+            allowCrossCityBrowsing: policyControls.allowCrossCityBrowsing,
           }),
         }))
         .filter((entry) => entry.policy.allowed)
@@ -147,6 +151,7 @@ export async function GET(request) {
         includeRemotePartTime,
         candidateRemotePreference,
         userLocation: profile?.location || null,
+        controls: policyControls,
       },
     });
   } catch (error) {

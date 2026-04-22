@@ -33,13 +33,21 @@ export function getThreadParties(conversation) {
   };
 }
 
-export function canInitiateThread({ initiatorRole, participantRoles }) {
+export function canInitiateThread({
+  initiatorRole,
+  participantRoles,
+  allowCandidateInitiatedEmployerMessages = false,
+}) {
   const initiatorIsCandidate = isCandidateRole(initiatorRole);
   const hasEmployerParticipant = (participantRoles || []).some((role) =>
     isEmployerRole(role),
   );
 
-  if (initiatorIsCandidate && hasEmployerParticipant) {
+  if (
+    initiatorIsCandidate &&
+    hasEmployerParticipant &&
+    !allowCandidateInitiatedEmployerMessages
+  ) {
     return {
       allowed: false,
       message:

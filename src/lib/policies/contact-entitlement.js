@@ -35,6 +35,7 @@ export async function evaluateEmployerContactEntitlement({
   employerId,
   candidateId,
   requireApplication = true,
+  subscriptionRequiredForEmployerContact = true,
 }) {
   if (!employerId || !candidateId) {
     return {
@@ -118,7 +119,7 @@ export async function evaluateEmployerContactEntitlement({
   }
 
   const subscriptionActive = isSubscriptionActive(candidateProfile);
-  if (!subscriptionActive) {
+  if (subscriptionRequiredForEmployerContact && !subscriptionActive) {
     return {
       allowed: false,
       reason: "candidate_subscription_inactive",
@@ -197,7 +198,8 @@ export async function evaluateEmployerContactEntitlement({
     policyApplied: true,
     checks: {
       employerStanding: true,
-      candidateSubscriptionActive: true,
+      candidateSubscriptionActive:
+        !subscriptionRequiredForEmployerContact || subscriptionActive,
       applicationExists,
     },
   };

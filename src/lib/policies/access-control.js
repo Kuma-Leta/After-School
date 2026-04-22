@@ -96,6 +96,7 @@ export function evaluateJobVisibilityPolicy({
   userProfile,
   includeRemotePartTime = false,
   candidateRemotePreference = false,
+  allowCrossCityBrowsing = false,
 }) {
   const validationResult = validateJobModel(job);
   if (!validationResult.isValid) {
@@ -122,6 +123,17 @@ export function evaluateJobVisibilityPolicy({
       allowed: true,
       normalizedJob: validationResult.normalized,
       reason: "role_not_restricted",
+    };
+  }
+
+  if (allowCrossCityBrowsing) {
+    return {
+      allowed: true,
+      normalizedJob: validationResult.normalized,
+      reason: "admin_cross_city_browsing_enabled",
+      metadata: {
+        allowCrossCityBrowsing: true,
+      },
     };
   }
 
@@ -183,6 +195,7 @@ export async function evaluateApplicationEligibility({
   applicantProfile,
   includeRemotePartTime = true,
   candidateRemotePreference = false,
+  allowCrossCityBrowsing = false,
 }) {
   if (!applicantId || !jobId) {
     return {
@@ -285,6 +298,7 @@ export async function evaluateApplicationEligibility({
     userProfile: profile,
     includeRemotePartTime,
     candidateRemotePreference,
+    allowCrossCityBrowsing,
   });
 
   if (!visibility.allowed) {
@@ -328,6 +342,7 @@ export async function evaluateContactInitiationPolicy({
   employerId,
   candidateId,
   requireApplication = true,
+  subscriptionRequiredForEmployerContact = true,
 }) {
   return evaluateEmployerContactEntitlement({
     supabase,
@@ -335,6 +350,7 @@ export async function evaluateContactInitiationPolicy({
     employerId,
     candidateId,
     requireApplication,
+    subscriptionRequiredForEmployerContact,
   });
 }
 
