@@ -11,6 +11,7 @@ import {
   Download,
   Globe,
   UserCircle,
+  Star,
 } from "lucide-react";
 
 export default function ApplicantInfoSection({ applicant, application, job }) {
@@ -49,6 +50,10 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
   const age = applicant.dateOfBirth
     ? calculateAge(applicant.dateOfBirth)
     : null;
+  const ratingSummary = applicant?.ratingSummary || {
+    averageScore: 0,
+    reviewCount: 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -80,6 +85,12 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
               {age && (
                 <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                   {age} years old
+                </span>
+              )}
+              {ratingSummary.reviewCount > 0 && (
+                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded inline-flex items-center">
+                  <Star className="h-3.5 w-3.5 mr-1" />
+                  {ratingSummary.averageScore.toFixed(1)} ({ratingSummary.reviewCount})
                 </span>
               )}
             </div>
@@ -224,7 +235,7 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
           </a>
 
           <p className="text-sm text-gray-500 mt-2">
-            Click to view or download the applicant's resume
+            Click to view or download the applicant&apos;s resume
           </p>
         </div>
       )}

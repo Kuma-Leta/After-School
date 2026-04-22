@@ -1,5 +1,5 @@
 // app/dashboard/candidates/components/ApplicantList/ApplicantCard.js
-import { User, Calendar, MapPin, FileText } from "lucide-react";
+import { User, Calendar, MapPin, FileText, Star } from "lucide-react";
 
 const getStatusColor = (status) => {
   const colors = {
@@ -14,6 +14,11 @@ const getStatusColor = (status) => {
 };
 
 export default function ApplicantCard({ applicant, onClick }) {
+  const ratingSummary = applicant?.applicant?.ratingSummary || {
+    averageScore: 0,
+    reviewCount: 0,
+  };
+
   return (
     <div
       onClick={onClick}
@@ -47,6 +52,18 @@ export default function ApplicantCard({ applicant, onClick }) {
       </div>
 
       <div className="space-y-2 mb-4">
+        {ratingSummary.reviewCount > 0 && (
+          <div className="flex items-center text-sm text-gray-700">
+            <Star className="w-4 h-4 mr-2 text-amber-500" />
+            <span className="font-medium">
+              {ratingSummary.averageScore.toFixed(1)} / 5
+            </span>
+            <span className="text-gray-500 ml-2">
+              ({ratingSummary.reviewCount} review{ratingSummary.reviewCount > 1 ? "s" : ""})
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center text-sm text-gray-600">
           <MapPin className="w-4 h-4 mr-2" />
           <span>

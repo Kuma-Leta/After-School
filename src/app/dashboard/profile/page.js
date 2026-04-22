@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { setupStorageBucket } from "@/lib/supabase/storageSetup";
@@ -13,41 +14,14 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [roleDetails, setRoleDetails] = useState(null);
+  const [candidateRatingSummary, setCandidateRatingSummary] = useState({
+    averageScore: 0,
+    reviewCount: 0,
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          router.push("/login");
-          return;
-        }
-
-        if (!session) {
-          router.push("/login");
-          return;
-        }
-
-        setUser(session.user);
-        await loadProfile(session.user.id);
-      } catch (err) {
-        console.error("Load error:", err);
-        setError("Failed to load profile data: " + err.message);
-        setLoading(false);
-      }
-    }
-    setupStorageBucket();
-    loadData();
-  }, [router]);
-
-  async function loadProfile(userId) {
+  const loadProfile = useCallback(async (userId) => {
     try {
       setLoading(true);
       setError("");
@@ -87,6 +61,29 @@ export default function ProfilePage() {
 
       setProfile(profileData);
 
+      if (["teacher", "student"].includes((profileData.role || "").toLowerCase())) {
+        const { data: ratingRows, error: ratingError } = await supabase
+          .from("placement_feedback_reviews")
+          .select("rating")
+          .eq("candidate_id", userId);
+
+        if (!ratingError) {
+          const total = (ratingRows || []).reduce(
+            (sum, row) => sum + Number(row.rating || 0),
+            0,
+          );
+          const count = (ratingRows || []).length;
+          setCandidateRatingSummary({
+            averageScore: count > 0 ? total / count : 0,
+            reviewCount: count,
+          });
+        } else {
+          setCandidateRatingSummary({ averageScore: 0, reviewCount: 0 });
+        }
+      } else {
+        setCandidateRatingSummary({ averageScore: 0, reviewCount: 0 });
+      }
+
       // Load role-specific details
       const roleTable = getRoleTable(profileData.role);
       if (roleTable) {
@@ -124,7 +121,38 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user?.email]);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          router.push("/login");
+          return;
+        }
+
+        if (!session) {
+          router.push("/login");
+          return;
+        }
+
+        setUser(session.user);
+        await loadProfile(session.user.id);
+      } catch (err) {
+        console.error("Load error:", err);
+        setError("Failed to load profile data: " + err.message);
+        setLoading(false);
+      }
+    }
+    setupStorageBucket();
+    loadData();
+  }, [loadProfile, router]);
 
   const getRoleTable = (role) => {
     switch (role) {
@@ -327,6 +355,22 @@ export default function ProfilePage() {
                     {profile?.role} Account
                   </span>
                 </div>
+
+                {["teacher", "student"].includes((profile?.role || "").toLowerCase()) && (
+                  <div className="mt-3 text-sm text-gray-700">
+                    {candidateRatingSummary.reviewCount > 0 ? (
+                      <p className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-amber-800 font-medium">
+                        <span className="mr-1">★</span>
+                        {candidateRatingSummary.averageScore.toFixed(1)} / 5
+                        <span className="ml-2 text-amber-700">
+                          ({candidateRatingSummary.reviewCount} review{candidateRatingSummary.reviewCount > 1 ? "s" : ""})
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-gray-500">No placement reviews yet.</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 space-y-4">

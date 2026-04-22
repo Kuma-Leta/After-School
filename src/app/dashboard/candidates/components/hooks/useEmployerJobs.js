@@ -2,6 +2,31 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+function buildCandidateRatingSummary(rows = []) {
+  const grouped = new Map();
+
+  for (const row of rows) {
+    const candidateId = row?.candidate_id;
+    const rating = Number(row?.rating);
+    if (!candidateId || Number.isNaN(rating)) continue;
+
+    const current = grouped.get(candidateId) || { total: 0, count: 0 };
+    current.total += rating;
+    current.count += 1;
+    grouped.set(candidateId, current);
+  }
+
+  const summaries = new Map();
+  grouped.forEach((value, key) => {
+    summaries.set(key, {
+      averageScore: value.count > 0 ? value.total / value.count : 0,
+      reviewCount: value.count,
+    });
+  });
+
+  return summaries;
+}
+
 export function useEmployerJobs(user) {
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
@@ -118,6 +143,7 @@ export function useEmployerJobs(user) {
 
       // Get all applicant profiles WITH EMAIL
       const applicantIds = applications.map((app) => app.applicant_id);
+      const uniqueApplicantIds = Array.from(new Set(applicantIds.filter(Boolean)));
       const { data: applicantProfiles, error: profileError } = await supabase
         .from("profiles")
         .select(
@@ -139,6 +165,18 @@ export function useEmployerJobs(user) {
         .in("id", applicantIds);
 
       if (profileError) throw profileError;
+
+      let candidateRatingSummary = new Map();
+      if (uniqueApplicantIds.length > 0) {
+        const { data: ratingRows, error: ratingError } = await supabase
+          .from("placement_feedback_reviews")
+          .select("candidate_id, rating")
+          .in("candidate_id", uniqueApplicantIds);
+
+        if (!ratingError) {
+          candidateRatingSummary = buildCandidateRatingSummary(ratingRows || []);
+        }
+      }
 
       // Combine application data with applicant profiles
       const combinedApplicants = applications.map((application) => {
@@ -191,6 +229,10 @@ export function useEmployerJobs(user) {
             gender: profile.gender,
             languages,
             profileCompletion: profile.profile_completion,
+            ratingSummary: candidateRatingSummary.get(profile.id) || {
+              averageScore: 0,
+              reviewCount: 0,
+            },
           },
         };
       });
