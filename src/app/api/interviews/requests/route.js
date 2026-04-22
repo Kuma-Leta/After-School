@@ -2,6 +2,99 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { TALENT_ROLES } from "@/lib/policies/access-control";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
+import { createServiceRoleClient } from "@/features/admin/server/auth";
+
+const DEFAULT_SCHEDULE_LINK = "/dashboard/schedule";
+
+function formatCalendarDate(dateInput) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeIcsText(value) {
+  return (value || "")
+    .toString()
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function buildCalendarLinks({
+  title,
+  description,
+  startAt,
+  endAt,
+  location,
+  uid,
+}) {
+  const start = formatCalendarDate(startAt);
+  const end = formatCalendarDate(endAt);
+  if (!start || !end) return null;
+
+  const eventTitle = title || "Interview";
+  const eventDescription = description || "Interview scheduled via AfterSchool";
+  const eventLocation = location || "AfterSchool";
+
+  const googleParams = new URLSearchParams({
+    action: "TEMPLATE",
+    text: eventTitle,
+    dates: `${start}/${end}`,
+    details: eventDescription,
+    location: eventLocation,
+  });
+
+  const icsContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//AfterSchool//Interview Scheduling//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid || `afterschool-${start}`}`,
+    `DTSTAMP:${formatCalendarDate(new Date())}`,
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${escapeIcsText(eventTitle)}`,
+    `DESCRIPTION:${escapeIcsText(eventDescription)}`,
+    `LOCATION:${escapeIcsText(eventLocation)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  return {
+    googleCalendarUrl: `https://calendar.google.com/calendar/render?${googleParams.toString()}`,
+    icsDataUrl: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`,
+    icsFileName: `afterschool-interview-${start}.ics`,
+  };
+}
+
+async function sendInterviewNotification({
+  recipientId,
+  title,
+  message,
+  metadata = {},
+  link = DEFAULT_SCHEDULE_LINK,
+  type = "event",
+}) {
+  if (!recipientId) return;
+
+  try {
+    const adminClient = createServiceRoleClient();
+    await adminClient.from("notifications").insert({
+      user_id: recipientId,
+      title,
+      message,
+      type,
+      metadata,
+      link,
+      read: false,
+    });
+  } catch (error) {
+    console.error("Failed to create interview notification:", error);
+  }
+}
 
 function isTalentRole(role) {
   return TALENT_ROLES.includes((role || "").toLowerCase());
@@ -92,6 +185,19 @@ async function mapRequestsWithDetails(supabase, rows = []) {
     const tutor = profileMap.get(request.tutor_id) || null;
     const school = profileMap.get(request.requester_school_id) || null;
     const job = application ? jobMap.get(application.job_id) || null : null;
+    const interviewTitle = `Interview: ${job?.title || "AfterSchool Opportunity"}`;
+    const interviewDescription = `Interview between ${school?.full_name || "School"} and ${tutor?.full_name || "Tutor"}.`;
+    const calendarLinks =
+      request.status === "accepted" && slot?.start_at && slot?.end_at
+        ? buildCalendarLinks({
+            title: interviewTitle,
+            description: interviewDescription,
+            startAt: slot.start_at,
+            endAt: slot.end_at,
+            location: slot.timezone || "Online",
+            uid: request.id,
+          })
+        : null;
 
     return {
       ...request,
@@ -100,6 +206,7 @@ async function mapRequestsWithDetails(supabase, rows = []) {
       school,
       application,
       job,
+      calendarLinks,
     };
   });
 }
@@ -315,7 +422,26 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({ success: true, request: inserted });
+    const [detailedRequest] = await mapRequestsWithDetails(supabase, [inserted]);
+
+    await sendInterviewNotification({
+      recipientId: inserted.tutor_id,
+      title: "New Interview Slot Request",
+      message: `${detailedRequest?.school?.full_name || "A school"} requested an interview slot for ${detailedRequest?.job?.title || "your application"}.`,
+      metadata: {
+        requestId: inserted.id,
+        applicationId: inserted.application_id,
+        availabilitySlotId: inserted.availability_slot_id,
+        status: inserted.status,
+        slotStartAt: detailedRequest?.slot?.start_at || null,
+        slotEndAt: detailedRequest?.slot?.end_at || null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      request: detailedRequest || inserted,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Failed to create interview request." },
@@ -432,7 +558,32 @@ export async function PATCH(request) {
         .neq("id", requestId);
     }
 
-    return NextResponse.json({ success: true, request: updatedRequest });
+    const [detailedRequest] = await mapRequestsWithDetails(supabase, [updatedRequest]);
+    const decisionLabel = status === "accepted" ? "accepted" : "declined";
+    const decisionTitle =
+      status === "accepted"
+        ? "Interview Request Accepted"
+        : "Interview Request Declined";
+
+    await sendInterviewNotification({
+      recipientId: updatedRequest.requester_school_id,
+      title: decisionTitle,
+      message: `${detailedRequest?.tutor?.full_name || "Tutor"} has ${decisionLabel} your interview request for ${detailedRequest?.job?.title || "the selected role"}.`,
+      metadata: {
+        requestId: updatedRequest.id,
+        applicationId: updatedRequest.application_id,
+        availabilitySlotId: updatedRequest.availability_slot_id,
+        status: updatedRequest.status,
+        slotStartAt: detailedRequest?.slot?.start_at || null,
+        slotEndAt: detailedRequest?.slot?.end_at || null,
+        calendarLinks: detailedRequest?.calendarLinks || null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      request: detailedRequest || updatedRequest,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Failed to update interview request." },

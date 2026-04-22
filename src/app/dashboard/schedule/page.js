@@ -61,6 +61,47 @@ function statusPill(status) {
   return "bg-gray-100 text-gray-700";
 }
 
+function handleDownloadIcs(calendarLinks) {
+  if (!calendarLinks?.icsDataUrl) return;
+
+  const link = document.createElement("a");
+  link.href = calendarLinks.icsDataUrl;
+  link.download = calendarLinks.icsFileName || "interview.ics";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function CalendarActions({ calendarLinks }) {
+  if (!calendarLinks?.googleCalendarUrl && !calendarLinks?.icsDataUrl) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {calendarLinks.googleCalendarUrl && (
+        <a
+          href={calendarLinks.googleCalendarUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+        >
+          Add to Google Calendar
+        </a>
+      )}
+      {calendarLinks.icsDataUrl && (
+        <button
+          type="button"
+          onClick={() => handleDownloadIcs(calendarLinks)}
+          className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+        >
+          Download ICS Invite
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function SchedulePage() {
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -217,6 +258,11 @@ export default function SchedulePage() {
 
   const incomingRequests = useMemo(
     () => requests.filter((request) => request.status === "pending"),
+    [requests],
+  );
+
+  const acceptedRequests = useMemo(
+    () => requests.filter((request) => request.status === "accepted"),
     [requests],
   );
 
@@ -618,6 +664,41 @@ export default function SchedulePage() {
                   </div>
                 )}
               </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Confirmed Interviews
+                </h2>
+
+                {acceptedRequests.length === 0 ? (
+                  <p className="text-gray-600">No confirmed interviews yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {acceptedRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {request.school?.full_name || "School"}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
+                          >
+                            {request.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1">
+                          Slot: {formatDateTime(request.slot?.start_at)} -{" "}
+                          {formatDateTime(request.slot?.end_at)}
+                        </p>
+                        <CalendarActions calendarLinks={request.calendarLinks} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -764,6 +845,7 @@ export default function SchedulePage() {
                             Message: {request.message}
                           </p>
                         )}
+                        <CalendarActions calendarLinks={request.calendarLinks} />
                       </div>
                     ))}
                   </div>
