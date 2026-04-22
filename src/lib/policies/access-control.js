@@ -7,6 +7,7 @@ import { evaluateEmployerContactEntitlement } from "@/lib/policies/contact-entit
 
 export const EMPLOYER_ROLES = ["school", "ngo", "family"];
 export const TALENT_ROLES = ["teacher", "student"];
+export const POST_PLACEMENT_FEEDBACK_ROLES = ["school", "family"];
 export const APPLICATION_STATUS_UPDATES = [
   "reviewed",
   "shortlisted",
@@ -515,5 +516,136 @@ export async function evaluateHireActionEligibility({
     reason: "eligible",
     application,
     job,
+  };
+}
+
+export async function evaluatePostPlacementFeedbackEligibility({
+  supabase,
+  actorId,
+  applicationId,
+  actorProfile,
+  allowedReviewerRoles = POST_PLACEMENT_FEEDBACK_ROLES,
+}) {
+  if (!applicationId) {
+    return {
+      allowed: false,
+      status: 400,
+      reason: "missing_required_fields",
+      message: "applicationId is required.",
+    };
+  }
+
+  let profile = actorProfile;
+  if (!profile) {
+    const { data: loadedProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .eq("id", actorId)
+      .maybeSingle();
+
+    if (profileError) {
+      return {
+        allowed: false,
+        status: 500,
+        reason: "profile_lookup_failed",
+        message: "Failed to load actor profile.",
+      };
+    }
+
+    profile = loadedProfile;
+  }
+
+  if (!profile) {
+    return {
+      allowed: false,
+      status: 404,
+      reason: "profile_not_found",
+      message: "Profile not found.",
+    };
+  }
+
+  if (!allowedReviewerRoles.includes((profile.role || "").toLowerCase())) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "reviewer_role_not_allowed",
+      message:
+        "Only family and school accounts can submit post-placement feedback.",
+    };
+  }
+
+  const { data: application, error: applicationError } = await supabase
+    .from("applications")
+    .select("id, job_id, applicant_id, status, hired_at")
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (applicationError) {
+    return {
+      allowed: false,
+      status: 500,
+      reason: "application_lookup_failed",
+      message: "Failed to load application.",
+    };
+  }
+
+  if (!application) {
+    return {
+      allowed: false,
+      status: 404,
+      reason: "application_not_found",
+      message: "Application not found.",
+    };
+  }
+
+  if (application.status !== "hired") {
+    return {
+      allowed: false,
+      status: 409,
+      reason: "placement_not_completed",
+      message:
+        "Post-placement feedback is only available after a candidate is marked as hired.",
+    };
+  }
+
+  const { data: job, error: jobError } = await supabase
+    .from("jobs")
+    .select("id, organization_id")
+    .eq("id", application.job_id)
+    .maybeSingle();
+
+  if (jobError) {
+    return {
+      allowed: false,
+      status: 500,
+      reason: "job_lookup_failed",
+      message: "Failed to load job for this application.",
+    };
+  }
+
+  if (!job) {
+    return {
+      allowed: false,
+      status: 404,
+      reason: "job_not_found",
+      message: "Related job was not found.",
+    };
+  }
+
+  if (job.organization_id !== actorId) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: "not_job_owner",
+      message: "You can only leave post-placement feedback for your own hires.",
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: "eligible",
+    application,
+    job,
+    reviewerProfile: profile,
   };
 }

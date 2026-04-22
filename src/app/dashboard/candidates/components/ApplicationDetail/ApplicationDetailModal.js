@@ -4,6 +4,7 @@
 import { useEffect } from "react";
 import StatusUpdateSection from "./StatusUpdateSection";
 import ApplicantInfoSection from "./ApplicantInfoSection";
+import PostPlacementReviewSection from "./PostPlacementReviewSection";
 import { useApplicationStatus } from "../hooks/useApplicationStatus";
 
 export default function ApplicationDetailModal({
@@ -119,6 +120,7 @@ export default function ApplicationDetailModal({
                     error={error}
                     onUpdateStatus={handleUpdateStatus}
                   />
+                  <PostPlacementReviewSection application={application} />
                 </div>
               </div>
             </div>
