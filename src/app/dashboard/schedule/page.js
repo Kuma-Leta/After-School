@@ -1,154 +1,358 @@
-// src/app/dashboard/schedule/page.js
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+
+const TUTOR_ROLES = ["teacher", "student"];
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatDateLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function groupSlotsByDay(slots = []) {
+  const groups = new Map();
+  for (const slot of slots) {
+    const key = (slot.start_at || "").slice(0, 10);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(slot);
+  }
+
+  return Array.from(groups.entries())
+    .map(([day, daySlots]) => ({
+      day,
+      daySlots: daySlots.sort(
+        (a, b) => new Date(a.start_at) - new Date(b.start_at),
+      ),
+    }))
+    .sort((a, b) => new Date(a.day) - new Date(b.day));
+}
+
+function statusPill(status) {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "accepted" || normalized === "booked") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  if (normalized === "declined" || normalized === "cancelled") {
+    return "bg-red-100 text-red-700";
+  }
+  if (normalized === "pending") {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-gray-100 text-gray-700";
+}
 
 export default function SchedulePage() {
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("week"); // 'day', 'week', 'month'
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { user, profile, loading: authLoading } = useAuth();
 
-  // Mock schedule data
-  const mockSchedule = [
-    {
-      id: 1,
-      title: "Math Tutoring - St. Mary's",
-      time: "9:00 AM - 10:30 AM",
-      date: "2024-01-15",
-      type: "teaching",
-      status: "confirmed",
-      student: "John Smith",
-      subject: "Mathematics",
-      location: "Room 204",
-      color: "bg-blue-100 text-blue-800"
-    },
-    {
-      id: 2,
-      title: "Science Workshop",
-      time: "11:00 AM - 12:30 PM",
-      date: "2024-01-15",
-      type: "workshop",
-      status: "confirmed",
-      student: "Group Class",
-      subject: "Science",
-      location: "Lab B",
-      color: "bg-green-100 text-green-800"
-    },
-    {
-      id: 3,
-      title: "Parent Meeting",
-      time: "2:00 PM - 3:00 PM",
-      date: "2024-01-15",
-      type: "meeting",
-      status: "pending",
-      student: "Sarah Johnson (Parent)",
-      subject: "Progress Review",
-      location: "Virtual - Zoom",
-      color: "bg-purple-100 text-purple-800"
-    },
-    {
-      id: 4,
-      title: "English Tutoring",
-      time: "4:00 PM - 5:30 PM",
-      date: "2024-01-16",
-      type: "teaching",
-      status: "confirmed",
-      student: "Emily Davis",
-      subject: "English Literature",
-      location: "Library",
-      color: "bg-blue-100 text-blue-800"
-    },
-    {
-      id: 5,
-      title: "Training Session",
-      time: "10:00 AM - 11:30 AM",
-      date: "2024-01-17",
-      type: "training",
-      status: "confirmed",
-      student: "Staff Development",
-      subject: "New Curriculum",
-      location: "Conference Room",
-      color: "bg-orange-100 text-orange-800"
-    },
-    {
-      id: 6,
-      title: "Physics Tutoring",
-      time: "1:00 PM - 2:30 PM",
-      date: "2024-01-18",
-      type: "teaching",
-      status: "tentative",
-      student: "Michael Brown",
-      subject: "Physics",
-      location: "Room 105",
-      color: "bg-blue-100 text-blue-800"
-    },
-  ];
+  const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  // Mock calendar days
-  const weekDays = [
-    { day: "Mon", date: "15", fullDate: "2024-01-15", today: true },
-    { day: "Tue", date: "16", fullDate: "2024-01-16" },
-    { day: "Wed", date: "17", fullDate: "2024-01-17" },
-    { day: "Thu", date: "18", fullDate: "2024-01-18" },
-    { day: "Fri", date: "19", fullDate: "2024-01-19" },
-    { day: "Sat", date: "20", fullDate: "2024-01-20" },
-    { day: "Sun", date: "21", fullDate: "2024-01-21" },
-  ];
+  const [slots, setSlots] = useState([]);
+  const [requests, setRequests] = useState([]);
 
-  // Mock time slots
-  const timeSlots = [
-    "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", 
-    "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", 
-    "4:00 PM", "5:00 PM", "6:00 PM"
-  ];
+  const [candidates, setCandidates] = useState([]);
+  const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const [selectedTutorId, setSelectedTutorId] = useState("");
+  const [candidateSlots, setCandidateSlots] = useState([]);
+  const [requestMessage, setRequestMessage] = useState("");
 
-  useEffect(() => {
-    setTimeout(() => {
-      setLoading(false);
-    }, 800);
+  const [form, setForm] = useState({
+    date: "",
+    startTime: "",
+    endTime: "",
+    timezone:
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Addis_Ababa",
+    notes: "",
+  });
+
+  const role = (profile?.role || "").toLowerCase();
+  const isTutor = TUTOR_ROLES.includes(role);
+  const isSchool = role === "school";
+
+  const loadTutorData = useCallback(async () => {
+    const [slotResponse, requestResponse] = await Promise.all([
+      fetch("/api/interviews/availability", { cache: "no-store" }),
+      fetch("/api/interviews/requests", { cache: "no-store" }),
+    ]);
+
+    const slotPayload = await slotResponse.json().catch(() => ({}));
+    if (!slotResponse.ok) {
+      throw new Error(
+        slotPayload.error || "Failed to load availability slots.",
+      );
+    }
+
+    const requestPayload = await requestResponse.json().catch(() => ({}));
+    if (!requestResponse.ok) {
+      throw new Error(
+        requestPayload.error || "Failed to load interview requests.",
+      );
+    }
+
+    setSlots(slotPayload.slots || []);
+    setRequests(requestPayload.requests || []);
   }, []);
 
-  const getEventsForDate = (date) => {
-    return mockSchedule.filter(event => event.date === date);
-  };
+  const loadSchoolData = useCallback(async () => {
+    const [candidateResponse, requestResponse] = await Promise.all([
+      fetch("/api/interviews/school-candidates", { cache: "no-store" }),
+      fetch("/api/interviews/requests", { cache: "no-store" }),
+    ]);
 
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'confirmed': return '✅';
-      case 'pending': return '🕒';
-      case 'tentative': return '❓';
-      case 'cancelled': return '❌';
-      default: return '📅';
+    const candidatePayload = await candidateResponse.json().catch(() => ({}));
+    if (!candidateResponse.ok) {
+      throw new Error(candidatePayload.error || "Failed to load candidates.");
     }
-  };
 
-  const getTypeIcon = (type) => {
-    switch(type) {
-      case 'teaching': return '👨‍🏫';
-      case 'workshop': return '👥';
-      case 'meeting': return '🤝';
-      case 'training': return '📚';
-      default: return '📅';
+    const requestPayload = await requestResponse.json().catch(() => ({}));
+    if (!requestResponse.ok) {
+      throw new Error(
+        requestPayload.error || "Failed to load interview requests.",
+      );
     }
+
+    const loadedCandidates = candidatePayload.candidates || [];
+    setCandidates(loadedCandidates);
+    setRequests(requestPayload.requests || []);
+
+    if (loadedCandidates.length > 0) {
+      setSelectedApplicationId(
+        (prev) => prev || loadedCandidates[0].applicationId,
+      );
+      setSelectedTutorId((prev) => prev || loadedCandidates[0].candidateId);
+    } else {
+      setSelectedApplicationId("");
+      setSelectedTutorId("");
+      setCandidateSlots([]);
+    }
+  }, []);
+
+  const loadCandidateSlots = useCallback(async (tutorId) => {
+    if (!tutorId) {
+      setCandidateSlots([]);
+      return;
+    }
+
+    const response = await fetch(
+      `/api/interviews/availability?tutorId=${encodeURIComponent(tutorId)}`,
+      { cache: "no-store" },
+    );
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        payload.error || "Failed to load candidate availability.",
+      );
+    }
+
+    setCandidateSlots(payload.slots || []);
+  }, []);
+
+  const loadPageData = useCallback(async () => {
+    if (!user || !profile) return;
+
+    setPageLoading(true);
+    setError("");
+
+    try {
+      if (isTutor) {
+        await loadTutorData();
+      } else if (isSchool) {
+        await loadSchoolData();
+      }
+    } catch (loadError) {
+      setError(loadError.message || "Failed to load schedule data.");
+    } finally {
+      setPageLoading(false);
+    }
+  }, [user, profile, isTutor, isSchool, loadTutorData, loadSchoolData]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      loadPageData();
+    }
+  }, [authLoading, loadPageData]);
+
+  useEffect(() => {
+    if (isSchool && selectedTutorId) {
+      loadCandidateSlots(selectedTutorId).catch((slotError) => {
+        setError(slotError.message || "Failed to load candidate availability.");
+      });
+    }
+  }, [isSchool, selectedTutorId, loadCandidateSlots]);
+
+  const openSlots = useMemo(
+    () =>
+      (slots || [])
+        .filter((slot) => slot.status === "open")
+        .filter((slot) => new Date(slot.start_at).getTime() > Date.now()),
+    [slots],
+  );
+
+  const groupedOpenSlots = useMemo(
+    () => groupSlotsByDay(openSlots),
+    [openSlots],
+  );
+
+  const incomingRequests = useMemo(
+    () => requests.filter((request) => request.status === "pending"),
+    [requests],
+  );
+
+  const activeSchoolCandidate = useMemo(
+    () =>
+      candidates.find(
+        (candidate) => candidate.applicationId === selectedApplicationId,
+      ) || null,
+    [candidates, selectedApplicationId],
+  );
+
+  const handleAddSlot = async (event) => {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+
+    if (!form.date || !form.startTime || !form.endTime) {
+      setError("Date, start time, and end time are required.");
+      return;
+    }
+
+    const startAt = new Date(`${form.date}T${form.startTime}`);
+    const endAt = new Date(`${form.date}T${form.endTime}`);
+
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+      setError("Please enter valid time values.");
+      return;
+    }
+
+    const response = await fetch("/api/interviews/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        timezone: form.timezone,
+        notes: form.notes,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(payload.error || "Failed to create interview slot.");
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, notes: "", startTime: "", endTime: "" }));
+    setNotice("Interview availability slot added.");
+    await loadTutorData();
   };
 
-  if (loading) {
+  const handleCancelSlot = async (slotId) => {
+    setError("");
+    setNotice("");
+
+    const response = await fetch(`/api/interviews/availability/${slotId}`, {
+      method: "DELETE",
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setError(payload.error || "Failed to cancel availability slot.");
+      return;
+    }
+
+    setNotice("Availability slot cancelled.");
+    await loadTutorData();
+  };
+
+  const handleRespondToRequest = async (requestId, status) => {
+    setError("");
+    setNotice("");
+
+    const response = await fetch("/api/interviews/requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId, status }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setError(payload.error || "Failed to update interview request.");
+      return;
+    }
+
+    setNotice(`Interview request ${status}.`);
+    await loadTutorData();
+  };
+
+  const handleCandidateSelection = (applicationId) => {
+    setSelectedApplicationId(applicationId);
+    const selected = candidates.find(
+      (candidate) => candidate.applicationId === applicationId,
+    );
+    setSelectedTutorId(selected?.candidateId || "");
+  };
+
+  const handleRequestSlot = async (availabilitySlotId) => {
+    setError("");
+    setNotice("");
+
+    if (!selectedApplicationId) {
+      setError("Please choose a candidate application first.");
+      return;
+    }
+
+    const response = await fetch("/api/interviews/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        availabilitySlotId,
+        applicationId: selectedApplicationId,
+        message: requestMessage,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setError(payload.error || "Failed to request interview slot.");
+      return;
+    }
+
+    setRequestMessage("");
+    setNotice("Interview slot requested successfully.");
+
+    await Promise.all([loadSchoolData(), loadCandidateSlots(selectedTutorId)]);
+  };
+
+  if (authLoading || pageLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <div className="h-64 bg-gray-100 rounded-lg"></div>
-                <div className="h-48 bg-gray-100 rounded-lg"></div>
-              </div>
-              <div className="space-y-4">
-                <div className="h-48 bg-gray-100 rounded-lg"></div>
-                <div className="h-32 bg-gray-100 rounded-lg"></div>
-              </div>
-            </div>
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-64" />
+            <div className="h-24 bg-gray-100 rounded-xl" />
+            <div className="h-80 bg-gray-100 rounded-xl" />
           </div>
         </div>
       </div>
@@ -157,314 +361,417 @@ export default function SchedulePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-[#1F1F1F]">My Schedule</h1>
-              <p className="text-gray-600 mt-1">Manage your teaching sessions and appointments</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setView("day")}
-                  className={`px-4 py-2 rounded-md transition-colors ${view === "day" ? "bg-white shadow" : "hover:bg-gray-200"}`}
-                >
-                  Day
-                </button>
-                <button
-                  onClick={() => setView("week")}
-                  className={`px-4 py-2 rounded-md transition-colors ${view === "week" ? "bg-white shadow" : "hover:bg-gray-200"}`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setView("month")}
-                  className={`px-4 py-2 rounded-md transition-colors ${view === "month" ? "bg-white shadow" : "hover:bg-gray-200"}`}
-                >
-                  Month
-                </button>
-              </div>
-              <button className="px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Event
-              </button>
-            </div>
-          </div>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#1F1F1F]">
+            Interview Scheduling
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {isTutor
+              ? "Publish your interview availability and respond to school requests."
+              : isSchool
+                ? "Request interview slots from available tutors/teachers."
+                : "Scheduling is currently available for tutors and schools."}
+          </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Today&apos;s Sessions</p>
-                <p className="text-2xl font-bold text-[#1F1F1F]">3</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-blue-600 text-lg">📅</span>
-              </div>
-            </div>
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
           </div>
-          <div className="bg-white rounded-xl shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">This Week</p>
-                <p className="text-2xl font-bold text-[#1F1F1F]">12</p>
-              </div>
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-green-600 text-lg">📆</span>
-              </div>
-            </div>
+        )}
+
+        {notice && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
+            {notice}
           </div>
-          <div className="bg-white rounded-xl shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Upcoming</p>
-                <p className="text-2xl font-bold text-[#1F1F1F]">8</p>
-              </div>
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <span className="text-purple-600 text-lg">⏰</span>
-              </div>
-            </div>
+        )}
+
+        {!isTutor && !isSchool && (
+          <div className="rounded-xl bg-white border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              Role Not Supported Yet
+            </h2>
+            <p className="text-gray-600">
+              This feature currently supports teacher/student availability and
+              school interview requests.
+            </p>
           </div>
-          <div className="bg-white rounded-xl shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Hours This Week</p>
-                <p className="text-2xl font-bold text-[#1F1F1F]">24</p>
-                <p className="text-xs text-gray-500">+2 from last week</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <span className="text-orange-600 text-lg">⏱️</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar View */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow overflow-hidden">
-              {/* Calendar Header */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button className="p-2 hover:bg-gray-100 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h2 className="text-lg font-semibold text-[#1F1F1F]">January 15-21, 2024</h2>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Today: </span>Mon, Jan 15
-                  </div>
-                </div>
-              </div>
-
-              {/* Week View */}
-              {view === "week" && (
-                <div className="p-4">
-                  <div className="grid grid-cols-7 gap-2 mb-2">
-                    {weekDays.map((day) => (
-                      <div
-                        key={day.date}
-                        className={`text-center p-3 rounded-lg ${day.today ? "bg-[#FF1E00] text-white" : "bg-gray-50"}`}
-                      >
-                        <div className="text-sm font-medium">{day.day}</div>
-                        <div className="text-xl font-bold mt-1">{day.date}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Time Grid */}
-                  <div className="border rounded-lg overflow-hidden">
-                    {timeSlots.map((time) => (
-                      <div key={time} className="flex border-b last:border-b-0">
-                        <div className="w-20 p-3 border-r bg-gray-50 text-sm text-gray-600">
-                          {time}
-                        </div>
-                        <div className="flex-1 grid grid-cols-7">
-                          {weekDays.map((day) => {
-                            const events = getEventsForDate(day.fullDate).filter(
-                              event => event.time.includes(time.split(" ")[0])
-                            );
-                            return (
-                              <div key={`${day.date}-${time}`} className="p-1 border-r last:border-r-0 min-h-[60px]">
-                                {events.map((event) => (
-                                  <div
-                                    key={event.id}
-                                    className={`p-2 rounded-lg mb-1 text-xs ${event.color} cursor-pointer hover:opacity-90`}
-                                  >
-                                    <div className="font-medium truncate">{event.title}</div>
-                                    <div className="truncate">{event.time}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Day View */}
-              {view === "day" && (
-                <div className="p-4">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-[#1F1F1F]">Monday, January 15</h3>
-                    <p className="text-gray-600">Today&apos;s schedule</p>
-                  </div>
-                  <div className="space-y-4">
-                    {getEventsForDate("2024-01-15").map((event) => (
-                      <div key={event.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className="text-lg">{getTypeIcon(event.type)}</span>
-                              <span className="font-medium text-[#1F1F1F]">{event.title}</span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${event.color}`}>
-                                {event.type}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">Time:</span>
-                                <p className="font-medium">{event.time}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">With:</span>
-                                <p className="font-medium">{event.student}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Subject:</span>
-                                <p className="font-medium">{event.subject}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Location:</span>
-                                <p className="font-medium">{event.location}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end space-y-2">
-                            <span className="text-lg">{getStatusIcon(event.status)}</span>
-                            <span className="text-xs capitalize px-2 py-1 rounded-full bg-gray-100">
-                              {event.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Month View Placeholder */}
-              {view === "month" && (
-                <div className="p-4">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-[#1F1F1F]">January 2024</h3>
-                    <p className="text-gray-600">Monthly view coming soon</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-8 text-center">
-                    <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-3xl">📅</span>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Monthly Calendar View</h3>
-                    <p className="text-gray-600 mb-4">
-                      This view will show your entire month at a glance with color-coded events
-                    </p>
-                    <button className="px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors font-medium">
-                      Switch to Week View
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Upcoming Events */}
-            <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-medium text-[#1F1F1F] mb-4">Upcoming This Week</h3>
-              <div className="space-y-3">
-                {mockSchedule.slice(0, 4).map((event) => (
-                  <div key={event.id} className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span>{getTypeIcon(event.type)}</span>
-                          <span className="font-medium text-sm">{event.title}</span>
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {event.date} • {event.time}
-                        </div>
-                      </div>
-                      <span className="text-lg">{getStatusIcon(event.status)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full mt-4 py-2 text-center text-[#FF1E00] hover:text-[#E01B00] transition-colors text-sm font-medium">
-                View All Events →
-              </button>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-medium text-[#1F1F1F] mb-4">Quick Actions</h3>
-              <div className="space-y-2">
-                <button className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <span>Request Time Off</span>
-                  <span>📝</span>
-                </button>
-                <button className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <span>Set Availability</span>
-                  <span>🕒</span>
-                </button>
-                <button className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <span>Sync Calendar</span>
-                  <span>🔄</span>
-                </button>
-                <button className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <span>Export Schedule</span>
-                  <span>📤</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Placeholder Note */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+        {isTutor && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 h-fit">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Add Availability Slot
+              </h2>
+              <form onSubmit={handleAddSlot} className="space-y-3">
                 <div>
-                  <span className="text-yellow-800 text-sm font-medium">Placeholder Component</span>
-                  <p className="text-yellow-700 text-sm mt-1">
-                    To implement a real schedule system, you&apos;ll need to:
-                    1. Create a database table for appointments/sessions
-                    2. Implement calendar integration (Google Calendar, Outlook)
-                    3. Add real-time availability checking
-                    4. Set up notifications and reminders
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, date: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={form.startTime}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          startTime: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={form.endTime}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          endTime: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Timezone
+                  </label>
+                  <input
+                    type="text"
+                    value={form.timezone}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        timezone: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={form.notes}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        notes: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                    placeholder="Interview format, meeting link, or preparation notes"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full rounded-lg bg-[#FF1E00] px-4 py-2.5 text-white font-medium hover:bg-[#E01B00]"
+                >
+                  Add Slot
+                </button>
+              </form>
+            </div>
+
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Open Availability Calendar
+                </h2>
+
+                {groupedOpenSlots.length === 0 ? (
+                  <p className="text-gray-600">No open interview slots yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {groupedOpenSlots.map((group) => (
+                      <div
+                        key={group.day}
+                        className="border border-gray-200 rounded-lg p-4"
+                      >
+                        <h3 className="font-semibold text-gray-900 mb-3">
+                          {formatDateLabel(group.day)}
+                        </h3>
+                        <div className="space-y-2">
+                          {group.daySlots.map((slot) => (
+                            <div
+                              key={slot.id}
+                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {formatDateTime(slot.start_at)} -{" "}
+                                  {new Date(slot.end_at).toLocaleTimeString(
+                                    [],
+                                    { hour: "numeric", minute: "2-digit" },
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {slot.timezone}
+                                  {slot.notes ? ` | ${slot.notes}` : ""}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCancelSlot(slot.id)}
+                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+                              >
+                                Cancel Slot
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Incoming Interview Requests
+                </h2>
+
+                {incomingRequests.length === 0 ? (
+                  <p className="text-gray-600">
+                    No pending interview requests.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {incomingRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-lg border border-gray-200 p-4 flex flex-col gap-3"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {request.school?.full_name || "School"}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
+                          >
+                            {request.status}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-gray-700">
+                          Slot: {formatDateTime(request.slot?.start_at)} -{" "}
+                          {formatDateTime(request.slot?.end_at)}
+                        </p>
+
+                        {request.message && (
+                          <p className="text-sm text-gray-600">
+                            Message: {request.message}
+                          </p>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRespondToRequest(request.id, "accepted")
+                            }
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRespondToRequest(request.id, "declined")
+                            }
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isSchool && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 h-fit space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Request Interview Slot
+              </h2>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Candidate Application
+                </label>
+                <select
+                  value={selectedApplicationId}
+                  onChange={(event) =>
+                    handleCandidateSelection(event.target.value)
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                >
+                  {candidates.length === 0 && (
+                    <option value="">No eligible candidates</option>
+                  )}
+                  {candidates.map((candidate) => (
+                    <option
+                      key={candidate.applicationId}
+                      value={candidate.applicationId}
+                    >
+                      {candidate.candidateName} | {candidate.jobTitle}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {activeSchoolCandidate && (
+                <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+                  <p>
+                    <span className="font-medium">Candidate:</span>{" "}
+                    {activeSchoolCandidate.candidateName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Status:</span>{" "}
+                    {activeSchoolCandidate.status}
+                  </p>
+                  <p>
+                    <span className="font-medium">Job:</span>{" "}
+                    {activeSchoolCandidate.jobTitle}
                   </p>
                 </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Request Message (optional)
+                </label>
+                <textarea
+                  rows={4}
+                  value={requestMessage}
+                  onChange={(event) => setRequestMessage(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  placeholder="Add details like interview format or preferred discussion points"
+                />
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Available Slots
+                </h2>
+
+                {candidateSlots.length === 0 ? (
+                  <p className="text-gray-600">
+                    No open availability from this candidate yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {candidateSlots.map((slot) => (
+                      <div
+                        key={slot.id}
+                        className="rounded-lg border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {formatDateTime(slot.start_at)} -{" "}
+                            {new Date(slot.end_at).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {slot.timezone}
+                            {slot.notes ? ` | ${slot.notes}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRequestSlot(slot.id)}
+                          disabled={!selectedApplicationId}
+                          className="rounded-lg bg-[#FF1E00] px-4 py-2 text-sm font-medium text-white hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Request Slot
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Sent Requests
+                </h2>
+                {requests.length === 0 ? (
+                  <p className="text-gray-600">
+                    No interview requests sent yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {requests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-gray-900">
+                            {request.tutor?.full_name || "Tutor"} |{" "}
+                            {request.job?.title || "Job"}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
+                          >
+                            {request.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {formatDateTime(request.slot?.start_at)} -{" "}
+                          {formatDateTime(request.slot?.end_at)}
+                        </p>
+                        {request.message && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Message: {request.message}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
