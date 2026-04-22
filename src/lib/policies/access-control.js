@@ -20,6 +20,21 @@ function isDeadlineActive(job) {
   return new Date(job.application_deadline) >= new Date();
 }
 
+function isCandidateSubscriptionActive(profile) {
+  if (!profile) return false;
+
+  if ((profile.payment_status || "").toLowerCase() === "paid") {
+    return true;
+  }
+
+  const isTrial = (profile.subscription_tier || "").toLowerCase() === "trial";
+  if (!isTrial || !profile.trial_end_date) {
+    return false;
+  }
+
+  return new Date(profile.trial_end_date).getTime() > Date.now();
+}
+
 export function isEmployerRole(role) {
   return EMPLOYER_ROLES.includes((role || "").toLowerCase());
 }
@@ -213,6 +228,21 @@ export async function evaluateApplicationEligibility({
       status: 403,
       reason: "non_candidate_role",
       message: "Only teachers and students can apply for jobs.",
+    };
+  }
+
+  if (!isCandidateSubscriptionActive(profile)) {
+    return {
+      allowed: false,
+      status: 402,
+      reason: "subscription_required_for_apply",
+      message:
+        "Premium subscription is required to apply and stay visible to employers.",
+      metadata: {
+        paymentStatus: profile.payment_status || null,
+        subscriptionTier: profile.subscription_tier || null,
+        trialEndDate: profile.trial_end_date || null,
+      },
     };
   }
 

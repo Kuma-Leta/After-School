@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import ProfileUpdateForm from "../components/ProfileUpdateForm";
+import UpgradePromptNotice from "@/components/payment/UpgradePromptNotice";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,6 +15,15 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [roleDetails, setRoleDetails] = useState(null);
   const [error, setError] = useState("");
+  const [showVisibilityUpgradePrompt, setShowVisibilityUpgradePrompt] =
+    useState(false);
+
+  const isUnpaidCandidate = (profileData) => {
+    const role = (profileData?.role || "").toLowerCase();
+    const isCandidateRole = role === "teacher" || role === "student";
+    const isPaid = (profileData?.payment_status || "").toLowerCase() === "paid";
+    return isCandidateRole && !isPaid;
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -138,6 +148,10 @@ export default function ProfilePage() {
       setRoleDetails(roleDetails);
 
       alert("Profile updated successfully!");
+
+      if (isUnpaidCandidate(updatedProfile)) {
+        setShowVisibilityUpgradePrompt(true);
+      }
     } catch (err) {
       console.error("Save error:", err);
       setError(err.message || "Failed to save profile");
@@ -166,6 +180,18 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
+        {showVisibilityUpgradePrompt && (
+          <div className="mb-6">
+            <UpgradePromptNotice
+              title="Your Profile Is Now Visible To Employers"
+              triggerLabel="profile_visibility_enabled"
+              description="You just updated your profile and can now appear in employer candidate review flows. Upgrade to premium for boosted visibility and priority placement."
+              redirectTo="/dashboard/profile"
+              onDismiss={() => setShowVisibilityUpgradePrompt(false)}
+            />
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center">

@@ -6,7 +6,12 @@ import { supabase } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 
-export default function JobCard({ job, onClick, viewerRole }) {
+export default function JobCard({
+  job,
+  onClick,
+  viewerRole,
+  onPremiumActionBlocked,
+}) {
   const router = useRouter();
   const { trialStatus } = useTrialStatus(); // note: we don't need refreshTrialStatus here unless you add payment modal later
   // Removed unused applyingJob state
@@ -56,6 +61,11 @@ export default function JobCard({ job, onClick, viewerRole }) {
 
       // Payment check (can be skipped after successful payment)
       if (!skipPaymentCheck && trialStatus.requiresPayment) {
+        onPremiumActionBlocked?.({
+          action: "apply_for_job",
+          jobId: job.id,
+          trigger: "premium_action_blocked",
+        });
         const returnUrl = `/jobs/${job.id}/apply`;
         router.push(`/payment?redirect=${encodeURIComponent(returnUrl)}`);
         return;

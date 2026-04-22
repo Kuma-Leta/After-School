@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import UpgradePromptNotice from "@/components/payment/UpgradePromptNotice";
 
 export default function ApplicationForm({ job, profile }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || "",
@@ -43,6 +45,9 @@ export default function ApplicationForm({ job, profile }) {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (payload?.reason === "subscription_required_for_apply") {
+          setShowPremiumPrompt(true);
+        }
         throw new Error(payload?.error || "Failed to submit application.");
       }
 
@@ -74,6 +79,18 @@ export default function ApplicationForm({ job, profile }) {
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
+      {showPremiumPrompt && (
+        <div className="mb-4">
+          <UpgradePromptNotice
+            title="Premium Required To Apply"
+            triggerLabel="premium_action_blocked"
+            description="Applying for jobs is currently restricted for unpaid student/teacher accounts. Upgrade to apply and stay visible to employers."
+            redirectTo={`/jobs/${job.id}/apply`}
+            onDismiss={() => setShowPremiumPrompt(false)}
+          />
         </div>
       )}
 

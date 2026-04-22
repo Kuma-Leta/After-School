@@ -11,6 +11,7 @@ import LoadingSpinner from "./components/ui/LoadingSpinner";
 import Header from "@/components/layout/Header";
 import { isRemotePartTimeJob } from "@/lib/jobs/visibility";
 import * as NotificationService from "@/lib/supabase/notifications";
+import UpgradePromptNotice from "@/components/payment/UpgradePromptNotice";
 
 const DEFAULT_FILTERS = {
   jobType: [],
@@ -47,6 +48,7 @@ export default function HomePage() {
   const [remoteOnlyPreferred, setRemoteOnlyPreferred] = useState(false);
   const [remoteAlertsEnabled, setRemoteAlertsEnabled] = useState(true);
   const [newRemoteMatchesCount, setNewRemoteMatchesCount] = useState(0);
+  const [upgradePrompt, setUpgradePrompt] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -313,6 +315,20 @@ export default function HomePage() {
 
   const handleDiscoveryTabChange = (tab) => {
     setDiscoveryTab(tab);
+  };
+
+  const handlePremiumActionBlocked = ({ action, jobId, trigger }) => {
+    if (action !== "apply_for_job") return;
+
+    setUpgradePrompt({
+      trigger,
+      action,
+      jobId,
+      title: "Upgrade Required For Job Applications",
+      description:
+        "Applying to jobs is a premium feature for students and teachers after trial access. Upgrade to continue applying and remain visible to employers.",
+      redirectTo: `/jobs/${jobId}/apply`,
+    });
   };
 
   const handleRemoteOnlyPreferenceChange = (checked) => {
@@ -612,6 +628,18 @@ export default function HomePage() {
           </div>
         )}
 
+        {upgradePrompt && (
+          <div className="mb-6">
+            <UpgradePromptNotice
+              title={upgradePrompt.title}
+              description={upgradePrompt.description}
+              triggerLabel={upgradePrompt.trigger}
+              redirectTo={upgradePrompt.redirectTo}
+              onDismiss={() => setUpgradePrompt(null)}
+            />
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-1/4">
             <div className="lg:sticky lg:top-24">
@@ -673,6 +701,7 @@ export default function HomePage() {
                       job={job}
                       onClick={() => handleJobClick(job)}
                       viewerRole={viewerRole}
+                      onPremiumActionBlocked={handlePremiumActionBlocked}
                     />
                   ))}
                 </div>
@@ -686,6 +715,7 @@ export default function HomePage() {
         <JobDetailModal
           job={selectedJob}
           viewerRole={viewerRole}
+          onPremiumActionBlocked={handlePremiumActionBlocked}
           onClose={() => setShowDetail(false)}
           onApply={() => {
             setShowDetail(false);

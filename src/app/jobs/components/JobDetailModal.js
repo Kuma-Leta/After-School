@@ -4,10 +4,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 // Inside the JobDetailModal component, update the Apply button logic:
-export default function JobDetailModal({ job, onClose, viewerRole }) {
+export default function JobDetailModal({
+  job,
+  onClose,
+  viewerRole,
+  onPremiumActionBlocked,
+}) {
   const router = useRouter();
+  const { trialStatus } = useTrialStatus();
   const [user, setUser] = useState(null);
   const [hasApplied, setHasApplied] = useState(false);
   const [userRole, setUserRole] = useState((viewerRole || "").toLowerCase());
@@ -77,6 +84,18 @@ export default function JobDetailModal({ job, onClose, viewerRole }) {
 
     if (!user) {
       router.push(`/login?redirect=/jobs/${job.id}/apply`);
+      return;
+    }
+
+    if (trialStatus.requiresPayment) {
+      onPremiumActionBlocked?.({
+        action: "apply_for_job",
+        jobId: job.id,
+        trigger: "premium_action_blocked",
+      });
+      router.push(
+        `/payment?redirect=${encodeURIComponent(`/jobs/${job.id}/apply`)}`,
+      );
       return;
     }
 
