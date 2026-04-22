@@ -2,8 +2,26 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { TALENT_ROLES } from "@/lib/policies/access-control";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
+import {
+  buildInterviewSchedulingSetupErrorResponsePayload,
+  isInterviewSchedulingMissingTableError,
+} from "@/lib/interviews/errors";
 
 const SCHOOL_ROLE = "school";
+
+function createDbErrorResponse(error, fallbackMessage) {
+  if (isInterviewSchedulingMissingTableError(error)) {
+    return NextResponse.json(
+      buildInterviewSchedulingSetupErrorResponsePayload(),
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(
+    { error: error?.message || fallbackMessage },
+    { status: 500 },
+  );
+}
 
 function isTalentRole(role) {
   return TALENT_ROLES.includes((role || "").toLowerCase());
@@ -68,9 +86,9 @@ export async function GET(request) {
         .order("start_at", { ascending: true });
 
       if (error) {
-        return NextResponse.json(
-          { error: error.message || "Failed to load interview availability." },
-          { status: 500 },
+        return createDbErrorResponse(
+          error,
+          "Failed to load interview availability.",
         );
       }
 
@@ -96,17 +114,17 @@ export async function GET(request) {
       .order("start_at", { ascending: true });
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message || "Failed to load interview availability." },
-        { status: 500 },
+      return createDbErrorResponse(
+        error,
+        "Failed to load interview availability.",
       );
     }
 
     return NextResponse.json({ slots: data || [] });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to load interview availability." },
-      { status: 500 },
+    return createDbErrorResponse(
+      error,
+      "Failed to load interview availability.",
     );
   }
 }
@@ -157,17 +175,17 @@ export async function POST(request) {
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message || "Failed to add interview availability." },
-        { status: 500 },
+      return createDbErrorResponse(
+        error,
+        "Failed to add interview availability.",
       );
     }
 
     return NextResponse.json({ success: true, slot: data });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to add interview availability." },
-      { status: 500 },
+    return createDbErrorResponse(
+      error,
+      "Failed to add interview availability.",
     );
   }
 }

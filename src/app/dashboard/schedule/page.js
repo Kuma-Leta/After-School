@@ -5,6 +5,22 @@ import { useAuth } from "@/hooks/useAuth";
 
 const TUTOR_ROLES = ["teacher", "student"];
 
+const INTERVIEW_SETUP_MESSAGE =
+  "Interview scheduling is not configured yet. Please run migration 20260422_interview_scheduling.sql and refresh the Supabase schema cache.";
+
+function normalizeInterviewErrorMessage(payload, fallbackMessage) {
+  const reason = payload?.reason || "";
+  const error = payload?.error || "";
+  if (
+    reason === "interview_scheduling_not_configured" ||
+    error.toLowerCase().includes("interview_availability_slots")
+  ) {
+    return INTERVIEW_SETUP_MESSAGE;
+  }
+
+  return error || fallbackMessage;
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -140,14 +156,20 @@ export default function SchedulePage() {
     const slotPayload = await slotResponse.json().catch(() => ({}));
     if (!slotResponse.ok) {
       throw new Error(
-        slotPayload.error || "Failed to load availability slots.",
+        normalizeInterviewErrorMessage(
+          slotPayload,
+          "Failed to load availability slots.",
+        ),
       );
     }
 
     const requestPayload = await requestResponse.json().catch(() => ({}));
     if (!requestResponse.ok) {
       throw new Error(
-        requestPayload.error || "Failed to load interview requests.",
+        normalizeInterviewErrorMessage(
+          requestPayload,
+          "Failed to load interview requests.",
+        ),
       );
     }
 
@@ -163,13 +185,21 @@ export default function SchedulePage() {
 
     const candidatePayload = await candidateResponse.json().catch(() => ({}));
     if (!candidateResponse.ok) {
-      throw new Error(candidatePayload.error || "Failed to load candidates.");
+      throw new Error(
+        normalizeInterviewErrorMessage(
+          candidatePayload,
+          "Failed to load candidates.",
+        ),
+      );
     }
 
     const requestPayload = await requestResponse.json().catch(() => ({}));
     if (!requestResponse.ok) {
       throw new Error(
-        requestPayload.error || "Failed to load interview requests.",
+        normalizeInterviewErrorMessage(
+          requestPayload,
+          "Failed to load interview requests.",
+        ),
       );
     }
 
@@ -203,7 +233,10 @@ export default function SchedulePage() {
 
     if (!response.ok) {
       throw new Error(
-        payload.error || "Failed to load candidate availability.",
+        normalizeInterviewErrorMessage(
+          payload,
+          "Failed to load candidate availability.",
+        ),
       );
     }
 
@@ -693,7 +726,9 @@ export default function SchedulePage() {
                           Slot: {formatDateTime(request.slot?.start_at)} -{" "}
                           {formatDateTime(request.slot?.end_at)}
                         </p>
-                        <CalendarActions calendarLinks={request.calendarLinks} />
+                        <CalendarActions
+                          calendarLinks={request.calendarLinks}
+                        />
                       </div>
                     ))}
                   </div>
@@ -845,7 +880,9 @@ export default function SchedulePage() {
                             Message: {request.message}
                           </p>
                         )}
-                        <CalendarActions calendarLinks={request.calendarLinks} />
+                        <CalendarActions
+                          calendarLinks={request.calendarLinks}
+                        />
                       </div>
                     ))}
                   </div>

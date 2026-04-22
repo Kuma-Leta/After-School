@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
+import {
+  buildInterviewSchedulingSetupErrorResponsePayload,
+  isInterviewSchedulingMissingTableError,
+} from "@/lib/interviews/errors";
+
+function createDbErrorResponse(error, fallbackMessage) {
+  if (isInterviewSchedulingMissingTableError(error)) {
+    return NextResponse.json(
+      buildInterviewSchedulingSetupErrorResponsePayload(),
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(
+    { error: error?.message || fallbackMessage },
+    { status: 500 },
+  );
+}
 
 export async function GET() {
   try {
@@ -27,10 +45,7 @@ export async function GET() {
       .eq("organization_id", actorId);
 
     if (jobsError) {
-      return NextResponse.json(
-        { error: jobsError.message || "Failed to load school jobs." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(jobsError, "Failed to load school jobs.");
     }
 
     const jobIds = (jobs || []).map((job) => job.id);
@@ -46,10 +61,7 @@ export async function GET() {
       .order("submitted_at", { ascending: false });
 
     if (appError) {
-      return NextResponse.json(
-        { error: appError.message || "Failed to load applications." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(appError, "Failed to load applications.");
     }
 
     const uniqueApplicantIds = Array.from(
@@ -66,11 +78,9 @@ export async function GET() {
         .in("id", uniqueApplicantIds);
 
       if (profileError) {
-        return NextResponse.json(
-          {
-            error: profileError.message || "Failed to load candidate profiles.",
-          },
-          { status: 500 },
+        return createDbErrorResponse(
+          profileError,
+          "Failed to load candidate profiles.",
         );
       }
 
@@ -104,9 +114,6 @@ export async function GET() {
 
     return NextResponse.json({ candidates });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to load school candidates." },
-      { status: 500 },
-    );
+    return createDbErrorResponse(error, "Failed to load school candidates.");
   }
 }

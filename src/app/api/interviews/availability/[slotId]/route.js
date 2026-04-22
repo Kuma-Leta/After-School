@@ -2,9 +2,27 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { TALENT_ROLES } from "@/lib/policies/access-control";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
+import {
+  buildInterviewSchedulingSetupErrorResponsePayload,
+  isInterviewSchedulingMissingTableError,
+} from "@/lib/interviews/errors";
 
 function isTalentRole(role) {
   return TALENT_ROLES.includes((role || "").toLowerCase());
+}
+
+function createDbErrorResponse(error, fallbackMessage) {
+  if (isInterviewSchedulingMissingTableError(error)) {
+    return NextResponse.json(
+      buildInterviewSchedulingSetupErrorResponsePayload(),
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(
+    { error: error?.message || fallbackMessage },
+    { status: 500 },
+  );
 }
 
 export async function DELETE(_request, { params }) {
@@ -39,10 +57,7 @@ export async function DELETE(_request, { params }) {
       .maybeSingle();
 
     if (slotError) {
-      return NextResponse.json(
-        { error: slotError.message || "Failed to load slot." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(slotError, "Failed to load slot.");
     }
 
     if (!slot || slot.tutor_id !== actorContext.actor.id) {
@@ -64,9 +79,9 @@ export async function DELETE(_request, { params }) {
       .limit(1);
 
     if (requestError) {
-      return NextResponse.json(
-        { error: requestError.message || "Failed to verify slot requests." },
-        { status: 500 },
+      return createDbErrorResponse(
+        requestError,
+        "Failed to verify slot requests.",
       );
     }
 
@@ -87,17 +102,11 @@ export async function DELETE(_request, { params }) {
       .eq("tutor_id", actorContext.actor.id);
 
     if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message || "Failed to cancel slot." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(updateError, "Failed to cancel slot.");
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to cancel slot." },
-      { status: 500 },
-    );
+    return createDbErrorResponse(error, "Failed to cancel slot.");
   }
 }

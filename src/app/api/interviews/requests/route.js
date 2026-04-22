@@ -3,13 +3,34 @@ import { createClient } from "@/lib/supabase/server";
 import { TALENT_ROLES } from "@/lib/policies/access-control";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
 import { createServiceRoleClient } from "@/features/admin/server/auth";
+import {
+  buildInterviewSchedulingSetupErrorResponsePayload,
+  isInterviewSchedulingMissingTableError,
+} from "@/lib/interviews/errors";
 
 const DEFAULT_SCHEDULE_LINK = "/dashboard/schedule";
+
+function createDbErrorResponse(error, fallbackMessage) {
+  if (isInterviewSchedulingMissingTableError(error)) {
+    return NextResponse.json(
+      buildInterviewSchedulingSetupErrorResponsePayload(),
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(
+    { error: error?.message || fallbackMessage },
+    { status: 500 },
+  );
+}
 
 function formatCalendarDate(dateInput) {
   const date = new Date(dateInput);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  return date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
 }
 
 function escapeIcsText(value) {
@@ -243,19 +264,13 @@ export async function GET() {
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json(
-        { error: error.message || "Failed to load interview requests." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(error, "Failed to load interview requests.");
     }
 
     const requests = await mapRequestsWithDetails(supabase, data || []);
     return NextResponse.json({ requests });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to load interview requests." },
-      { status: 500 },
-    );
+    return createDbErrorResponse(error, "Failed to load interview requests.");
   }
 }
 
@@ -297,9 +312,9 @@ export async function POST(request) {
       .maybeSingle();
 
     if (slotError) {
-      return NextResponse.json(
-        { error: slotError.message || "Failed to load availability slot." },
-        { status: 500 },
+      return createDbErrorResponse(
+        slotError,
+        "Failed to load availability slot.",
       );
     }
 
@@ -324,10 +339,7 @@ export async function POST(request) {
       .maybeSingle();
 
     if (appError) {
-      return NextResponse.json(
-        { error: appError.message || "Failed to load application." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(appError, "Failed to load application.");
     }
 
     if (!application || application.applicant_id !== slot.tutor_id) {
@@ -357,10 +369,7 @@ export async function POST(request) {
       .maybeSingle();
 
     if (jobError) {
-      return NextResponse.json(
-        { error: jobError.message || "Failed to load related job." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(jobError, "Failed to load related job.");
     }
 
     if (!job || job.organization_id !== actorId) {
@@ -381,12 +390,9 @@ export async function POST(request) {
       .limit(1);
 
     if (existingError) {
-      return NextResponse.json(
-        {
-          error:
-            existingError.message || "Failed to verify existing slot requests.",
-        },
-        { status: 500 },
+      return createDbErrorResponse(
+        existingError,
+        "Failed to verify existing slot requests.",
       );
     }
 
@@ -416,13 +422,15 @@ export async function POST(request) {
       .single();
 
     if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message || "Failed to create interview request." },
-        { status: 500 },
+      return createDbErrorResponse(
+        insertError,
+        "Failed to create interview request.",
       );
     }
 
-    const [detailedRequest] = await mapRequestsWithDetails(supabase, [inserted]);
+    const [detailedRequest] = await mapRequestsWithDetails(supabase, [
+      inserted,
+    ]);
 
     await sendInterviewNotification({
       recipientId: inserted.tutor_id,
@@ -443,10 +451,7 @@ export async function POST(request) {
       request: detailedRequest || inserted,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to create interview request." },
-      { status: 500 },
-    );
+    return createDbErrorResponse(error, "Failed to create interview request.");
   }
 }
 
@@ -486,10 +491,7 @@ export async function PATCH(request) {
       .maybeSingle();
 
     if (requestError) {
-      return NextResponse.json(
-        { error: requestError.message || "Failed to load request." },
-        { status: 500 },
-      );
+      return createDbErrorResponse(requestError, "Failed to load request.");
     }
 
     if (!slotRequest || slotRequest.tutor_id !== actorId) {
@@ -522,9 +524,9 @@ export async function PATCH(request) {
       .single();
 
     if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message || "Failed to update interview request." },
-        { status: 500 },
+      return createDbErrorResponse(
+        updateError,
+        "Failed to update interview request.",
       );
     }
 
@@ -536,13 +538,9 @@ export async function PATCH(request) {
         .eq("tutor_id", actorId);
 
       if (slotUpdateError) {
-        return NextResponse.json(
-          {
-            error:
-              slotUpdateError.message ||
-              "Request accepted but failed to update slot status.",
-          },
-          { status: 500 },
+        return createDbErrorResponse(
+          slotUpdateError,
+          "Request accepted but failed to update slot status.",
         );
       }
 
@@ -558,7 +556,9 @@ export async function PATCH(request) {
         .neq("id", requestId);
     }
 
-    const [detailedRequest] = await mapRequestsWithDetails(supabase, [updatedRequest]);
+    const [detailedRequest] = await mapRequestsWithDetails(supabase, [
+      updatedRequest,
+    ]);
     const decisionLabel = status === "accepted" ? "accepted" : "declined";
     const decisionTitle =
       status === "accepted"
@@ -585,9 +585,6 @@ export async function PATCH(request) {
       request: detailedRequest || updatedRequest,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Failed to update interview request." },
-      { status: 500 },
-    );
+    return createDbErrorResponse(error, "Failed to update interview request.");
   }
 }
