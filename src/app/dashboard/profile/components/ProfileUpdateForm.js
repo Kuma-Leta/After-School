@@ -136,12 +136,139 @@ export default function ProfileUpdateForm({
   onCancel,
   saving = false,
 }) {
+  const STEP_DEFINITIONS = [
+    { id: 1, label: "Personal Info" },
+    { id: 2, label: "Role Details" },
+    { id: 3, label: "Review & Save" },
+  ];
+
   const [formProfile, setFormProfile] = useState(profile || {});
   const [formRoleDetails, setFormRoleDetails] = useState(roleDetails || {});
   const [customSkill, setCustomSkill] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
   const fileInputRef = useRef(null);
-    const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
+
+  const isFilled = (value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "number") return !Number.isNaN(value);
+    return Boolean((value || "").toString().trim());
+  };
+
+  const getRoleRequiredChecks = () => {
+    const role = (profile?.role || "").toLowerCase();
+
+    if (role === "teacher") {
+      return [
+        isFilled(formRoleDetails?.subjects),
+        isFilled(formRoleDetails?.experience_years),
+        isFilled(formRoleDetails?.education_level),
+      ];
+    }
+
+    if (role === "student") {
+      return [
+        isFilled(formRoleDetails?.university),
+        isFilled(formRoleDetails?.department),
+      ];
+    }
+
+    if (role === "school") {
+      return [
+        isFilled(formRoleDetails?.school_name),
+        isFilled(formRoleDetails?.school_type),
+        isFilled(formRoleDetails?.school_level),
+        isFilled(formRoleDetails?.address),
+        isFilled(formRoleDetails?.contact_person),
+      ];
+    }
+
+    if (role === "ngo") {
+      return [
+        isFilled(formRoleDetails?.organization_name),
+        isFilled(formRoleDetails?.focus_area),
+        isFilled(formRoleDetails?.address),
+        isFilled(formRoleDetails?.contact_person),
+        isFilled(formRoleDetails?.mission),
+      ];
+    }
+
+    if (role === "family") {
+      return [
+        isFilled(formRoleDetails?.guardian_name),
+        isFilled(formRoleDetails?.relationship),
+        isFilled(formRoleDetails?.number_of_children),
+        isFilled(formRoleDetails?.education_needs),
+      ];
+    }
+
+    if (role === "admin") {
+      return [
+        isFilled(formRoleDetails?.department),
+        isFilled(formRoleDetails?.position),
+      ];
+    }
+
+    return [];
+  };
+
+  const getStepValidation = (step) => {
+    if (step === 1) {
+      return (
+        isFilled(formProfile?.full_name) &&
+        isFilled(formProfile?.phone) &&
+        isFilled(formProfile?.location)
+      );
+    }
+
+    if (step === 2) {
+      const checks = getRoleRequiredChecks();
+      return checks.length === 0 || checks.every(Boolean);
+    }
+
+    return true;
+  };
+
+  const getProfileCompletion = () => {
+    const baseChecks = [
+      isFilled(formProfile?.full_name),
+      isFilled(formProfile?.phone),
+      isFilled(formProfile?.location),
+      isFilled(formProfile?.date_of_birth),
+      isFilled(formProfile?.gender),
+      isFilled(formProfile?.bio),
+      isFilled(formProfile?.languages),
+      isFilled(formProfile?.avatar_url),
+    ];
+
+    const roleChecks = getRoleRequiredChecks();
+    const checks = [...baseChecks, ...roleChecks];
+    if (checks.length === 0) return 0;
+
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
+  };
+
+  const completionPercent = getProfileCompletion();
+  const stepProgressPercent = Math.round(
+    (currentStep / STEP_DEFINITIONS.length) * 100,
+  );
+
+  const goToNextStep = () => {
+    if (!getStepValidation(currentStep)) {
+      alert(
+        "Please complete the required fields in this step before continuing.",
+      );
+      return;
+    }
+
+    setCurrentStep((prev) => Math.min(prev + 1, STEP_DEFINITIONS.length));
+  };
+
+  const goToPreviousStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
   useEffect(() => {
     if (profile) {
       setFormProfile(profile);
@@ -169,8 +296,14 @@ export default function ProfileUpdateForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (currentStep !== STEP_DEFINITIONS.length) {
+      goToNextStep();
+      return;
+    }
+
     const dataToSave = {
       ...formProfile,
+      profile_completion: completionPercent,
       roleDetails: formRoleDetails,
     };
     await onSave(dataToSave);
@@ -257,8 +390,7 @@ export default function ProfileUpdateForm({
     }
   };
 
- // ...existing code...
-
+  // ...existing code...
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -295,7 +427,9 @@ export default function ProfileUpdateForm({
         const oldUrl = new URL(formProfile.avatar_url);
         const oldPath = oldUrl.pathname.split("/").pop();
         if (oldPath) {
-          await supabase.storage.from("avatars").remove([`${authUser.id}/${oldPath}`]);
+          await supabase.storage
+            .from("avatars")
+            .remove([`${authUser.id}/${oldPath}`]);
         }
       }
 
@@ -341,7 +475,7 @@ export default function ProfileUpdateForm({
       }
     }
   };
-// ...existing code...
+  // ...existing code...
   const handleImageError = (e) => {
     console.error("Image failed to load:", formProfile.avatar_url);
     // Remove the broken image and show placeholder
@@ -1401,6 +1535,8 @@ export default function ProfileUpdateForm({
     </div>
   );
 
+  const isFinalStep = currentStep === STEP_DEFINITIONS.length;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Header */}
@@ -1415,246 +1551,364 @@ export default function ProfileUpdateForm({
         <p className="text-gray-600 mt-2">
           Complete your profile information below
         </p>
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">
+                Step Progress
+              </span>
+              <span className="text-sm text-gray-600">
+                Step {currentStep} of {STEP_DEFINITIONS.length}
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+              <div
+                className="h-full bg-[#FF1E00] transition-all duration-300"
+                style={{ width: `${stepProgressPercent}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              {STEP_DEFINITIONS.map((step) => (
+                <span
+                  key={step.id}
+                  className={`text-xs ${currentStep >= step.id ? "text-[#FF1E00] font-semibold" : "text-gray-500"}`}
+                >
+                  {step.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">
+                Profile Completion
+              </span>
+              <span className="text-sm font-semibold text-gray-700">
+                {completionPercent}%
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Basic Information - Common for all roles */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-semibold text-[#1F1F1F] mb-6">
-          Personal Information
-        </h2>
+      {/* Step 1: Basic Information - Common for all roles */}
+      {currentStep === 1 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-xl font-semibold text-[#1F1F1F] mb-6">
+            Personal Information
+          </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              value={formProfile?.full_name || ""}
-              onChange={handleProfileChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-              required
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                name="full_name"
+                value={formProfile?.full_name || ""}
+                onChange={handleProfileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number *
-            </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formProfile?.phone || ""}
-              onChange={handleProfileChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formProfile?.phone || ""}
+                onChange={handleProfileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Location *
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formProfile?.location || ""}
-              onChange={handleProfileChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-              placeholder="City, Region"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location *
+              </label>
+              <input
+                type="text"
+                name="location"
+                value={formProfile?.location || ""}
+                onChange={handleProfileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                placeholder="City, Region"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date of Birth
-            </label>
-            <input
-              type="date"
-              name="date_of_birth"
-              value={formProfile?.date_of_birth || ""}
-              onChange={handleProfileChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                name="date_of_birth"
+                value={formProfile?.date_of_birth || ""}
+                onChange={handleProfileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Gender
-            </label>
-            <select
-              name="gender"
-              value={formProfile?.gender || ""}
-              onChange={handleProfileChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-            >
-              <option value="">Select Gender</option>
-              {GENDERS.map((gender) => (
-                <option key={gender} value={gender}>
-                  {gender}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Gender
+              </label>
+              <select
+                name="gender"
+                value={formProfile?.gender || ""}
+                onChange={handleProfileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+              >
+                <option value="">Select Gender</option>
+                {GENDERS.map((gender) => (
+                  <option key={gender} value={gender}>
+                    {gender}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Profile Picture
-            </label>
-            <div className="flex items-center space-x-6">
-              <div className="relative">
-                {formProfile?.avatar_url ? (
-                  <>
-                    <img
-                      key={formProfile.avatar_url} // Force re-render on URL change
-                      src={formProfile.avatar_url}
-                      alt="Profile"
-                      className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-                      onError={handleImageError}
-                    />
-                    {uploading && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex flex-col items-center justify-center border-2 border-gray-200">
-                    <svg
-                      className="w-8 h-8 text-gray-500 mb-1"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clipRule="evenodd"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Profile Picture
+              </label>
+              <div className="flex items-center space-x-6">
+                <div className="relative">
+                  {formProfile?.avatar_url ? (
+                    <>
+                      <img
+                        key={formProfile.avatar_url} // Force re-render on URL change
+                        src={formProfile.avatar_url}
+                        alt="Profile"
+                        className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                        onError={handleImageError}
                       />
-                    </svg>
-                    <span className="text-xs text-gray-500">No image</span>
-                  </div>
-                )}
-              </div>
+                      {uploading && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex flex-col items-center justify-center border-2 border-gray-200">
+                      <svg
+                        className="w-8 h-8 text-gray-500 mb-1"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-xs text-gray-500">No image</span>
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                  className="block w-full text-sm text-gray-500
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-full file:border-0
                 file:text-sm file:font-semibold
                 file:bg-[#FF1E00] file:text-white
                 hover:file:bg-[#E01B00]
                 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Recommended: Square image, max 2MB. Supports JPG, PNG, GIF,
-                  WebP.
-                </p>
-                {uploading && (
-                  <p className="text-sm text-[#FF1E00] mt-1">Uploading...</p>
-                )}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Recommended: Square image, max 2MB. Supports JPG, PNG, GIF,
+                    WebP.
+                  </p>
+                  {uploading && (
+                    <p className="text-sm text-[#FF1E00] mt-1">Uploading...</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Languages Spoken
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {LANGUAGES.map((language) => (
-                <div key={language} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`lang-${language}`}
-                    value={language}
-                    checked={
-                      Array.isArray(formProfile?.languages) &&
-                      formProfile.languages.includes(language)
-                    }
-                    onChange={handleProfileChange}
-                    name="languages"
-                    className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor={`lang-${language}`}
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    {language}
-                  </label>
-                </div>
-              ))}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Languages Spoken
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {LANGUAGES.map((language) => (
+                  <div key={language} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`lang-${language}`}
+                      value={language}
+                      checked={
+                        Array.isArray(formProfile?.languages) &&
+                        formProfile.languages.includes(language)
+                      }
+                      onChange={handleProfileChange}
+                      name="languages"
+                      className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor={`lang-${language}`}
+                      className="ml-2 text-sm text-gray-700"
+                    >
+                      {language}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                About Me
+              </label>
+              <textarea
+                name="bio"
+                value={formProfile?.bio || ""}
+                onChange={handleProfileChange}
+                rows="3"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
+                placeholder="Tell us about yourself..."
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Role-specific section */}
+      {currentStep === 2 && renderRoleSpecificSection()}
+
+      {/* Step 3: Review */}
+      {currentStep === 3 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-xl font-semibold text-[#1F1F1F] mb-4">
+            Review & Submit
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Confirm your information and save your completed profile.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">Full Name</p>
+              <p className="font-medium text-gray-900">
+                {formProfile?.full_name || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Phone</p>
+              <p className="font-medium text-gray-900">
+                {formProfile?.phone || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Location</p>
+              <p className="font-medium text-gray-900">
+                {formProfile?.location || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Role</p>
+              <p className="font-medium text-gray-900 capitalize">
+                {profile?.role || "Not provided"}
+              </p>
             </div>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              About Me
-            </label>
-            <textarea
-              name="bio"
-              value={formProfile?.bio || ""}
-              onChange={handleProfileChange}
-              rows="3"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00]"
-              placeholder="Tell us about yourself..."
-            />
+          <div className="mt-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+            Your profile completion is currently{" "}
+            <strong>{completionPercent}%</strong>. You can return to previous
+            steps to improve it before saving.
           </div>
         </div>
-      </div>
-
-      {/* Role-specific section */}
-      {renderRoleSpecificSection()}
+      )}
 
       {/* Action Buttons */}
       <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="px-8 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center"
-        >
-          {saving ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            "Save Changes"
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
+          >
+            Cancel
+          </button>
+
+          {currentStep > 1 && (
+            <button
+              type="button"
+              onClick={goToPreviousStep}
+              disabled={saving}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium"
+            >
+              Back
+            </button>
           )}
-        </button>
+        </div>
+
+        {isFinalStep ? (
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-8 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center"
+          >
+            {saving ? (
+              <>
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={goToNextStep}
+            disabled={saving}
+            className="px-8 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
+            Continue
+          </button>
+        )}
       </div>
     </form>
   );
