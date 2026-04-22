@@ -143,7 +143,9 @@ export function useEmployerJobs(user) {
 
       // Get all applicant profiles WITH EMAIL
       const applicantIds = applications.map((app) => app.applicant_id);
-      const uniqueApplicantIds = Array.from(new Set(applicantIds.filter(Boolean)));
+      const uniqueApplicantIds = Array.from(
+        new Set(applicantIds.filter(Boolean)),
+      );
       const { data: applicantProfiles, error: profileError } = await supabase
         .from("profiles")
         .select(
@@ -174,7 +176,9 @@ export function useEmployerJobs(user) {
           .in("candidate_id", uniqueApplicantIds);
 
         if (!ratingError) {
-          candidateRatingSummary = buildCandidateRatingSummary(ratingRows || []);
+          candidateRatingSummary = buildCandidateRatingSummary(
+            ratingRows || [],
+          );
         }
       }
 

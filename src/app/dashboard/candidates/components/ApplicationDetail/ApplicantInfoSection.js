@@ -90,7 +90,8 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
               {ratingSummary.reviewCount > 0 && (
                 <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded inline-flex items-center">
                   <Star className="h-3.5 w-3.5 mr-1" />
-                  {ratingSummary.averageScore.toFixed(1)} ({ratingSummary.reviewCount})
+                  {ratingSummary.averageScore.toFixed(1)} (
+                  {ratingSummary.reviewCount})
                 </span>
               )}
             </div>

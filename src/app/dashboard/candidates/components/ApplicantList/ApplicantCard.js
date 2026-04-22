@@ -59,7 +59,8 @@ export default function ApplicantCard({ applicant, onClick }) {
               {ratingSummary.averageScore.toFixed(1)} / 5
             </span>
             <span className="text-gray-500 ml-2">
-              ({ratingSummary.reviewCount} review{ratingSummary.reviewCount > 1 ? "s" : ""})
+              ({ratingSummary.reviewCount} review
+              {ratingSummary.reviewCount > 1 ? "s" : ""})
             </span>
           </div>
         )}
