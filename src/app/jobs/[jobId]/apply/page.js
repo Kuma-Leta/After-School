@@ -43,8 +43,12 @@ export default function ApplyPage() {
       }
 
       // 1. Fetch job details through backend policy-enforced API
+      const candidateRemotePreference =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("afterschool.jobs.pref.remoteOnly") === "1";
+
       const jobResponse = await fetch(
-        `/api/jobs/${jobId}?includeRemotePartTime=true`,
+        `/api/jobs/${jobId}?includeRemotePartTime=true&candidateRemotePreference=${candidateRemotePreference}`,
         {
           method: "GET",
           headers: {

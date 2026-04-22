@@ -54,21 +54,101 @@ export function isRemotePartTimeJob(job) {
   return isRemote && isPartTime;
 }
 
+export function isRemoteAllowedForJob(job) {
+  const normalizedJob = normalizeJobModel(job);
+
+  if (typeof normalizedJob?.remote_allowed === "boolean") {
+    return normalizedJob.remote_allowed;
+  }
+
+  return ["remote", "hybrid"].includes(normalizedJob?.job_mode);
+}
+
+export function evaluateLocationAwareJobEligibility(
+  job,
+  candidateCity,
+  { candidateRemotePreference = false, includeRemotePartTime = false } = {},
+) {
+  const normalizedJob = normalizeJobModel(job);
+  const normalizedCandidateCity = normalizeLocation(candidateCity);
+  const normalizedJobCity = normalizeLocation(
+    normalizedJob?.city || normalizedJob?.location,
+  );
+  const remoteAllowed = isRemoteAllowedForJob(normalizedJob);
+  const remotePreferred = Boolean(candidateRemotePreference);
+  const cityMatch = matchesLocalJob(normalizedJobCity, normalizedCandidateCity);
+  const remotePartTimeMatch = isRemotePartTimeJob(normalizedJob);
+
+  if (cityMatch) {
+    return {
+      eligible: true,
+      reason: "city_match",
+      checks: {
+        candidateCity: normalizedCandidateCity,
+        jobCity: normalizedJobCity,
+        cityMatch,
+        remoteAllowed,
+        remotePreferred,
+        remotePartTimeMatch,
+      },
+    };
+  }
+
+  if (remoteAllowed && remotePreferred) {
+    return {
+      eligible: true,
+      reason: "remote_preference_match",
+      checks: {
+        candidateCity: normalizedCandidateCity,
+        jobCity: normalizedJobCity,
+        cityMatch,
+        remoteAllowed,
+        remotePreferred,
+        remotePartTimeMatch,
+      },
+    };
+  }
+
+  if (includeRemotePartTime && remotePartTimeMatch) {
+    return {
+      eligible: true,
+      reason: "remote_part_time_discovery_match",
+      checks: {
+        candidateCity: normalizedCandidateCity,
+        jobCity: normalizedJobCity,
+        cityMatch,
+        remoteAllowed,
+        remotePreferred,
+        remotePartTimeMatch,
+      },
+    };
+  }
+
+  return {
+    eligible: false,
+    reason: remoteAllowed
+      ? remotePreferred
+        ? "remote_preference_unmet"
+        : "candidate_remote_preference_disabled"
+      : "location_mismatch",
+    checks: {
+      candidateCity: normalizedCandidateCity,
+      jobCity: normalizedJobCity,
+      cityMatch,
+      remoteAllowed,
+      remotePreferred,
+      remotePartTimeMatch,
+    },
+  };
+}
+
 export function isJobVisibleToUser(
   job,
   userLocation,
-  { includeRemotePartTime = false } = {},
+  { includeRemotePartTime = false, candidateRemotePreference = false } = {},
 ) {
-  const normalizedJob = normalizeJobModel(job);
-  const jobCityOrLocation = normalizedJob?.city || normalizedJob?.location;
-
-  if (matchesLocalJob(jobCityOrLocation, userLocation)) {
-    return true;
-  }
-
-  if (includeRemotePartTime && isRemotePartTimeJob(normalizedJob)) {
-    return true;
-  }
-
-  return false;
+  return evaluateLocationAwareJobEligibility(job, userLocation, {
+    includeRemotePartTime,
+    candidateRemotePreference,
+  }).eligible;
 }

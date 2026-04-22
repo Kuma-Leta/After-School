@@ -17,6 +17,8 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const includeRemotePartTime =
       searchParams.get("includeRemotePartTime") === "true";
+    const candidateRemotePreference =
+      searchParams.get("candidateRemotePreference") === "true";
 
     const jobId = params?.jobId;
 
@@ -53,6 +55,7 @@ export async function GET(request, { params }) {
       job,
       userProfile: profile,
       includeRemotePartTime,
+      candidateRemotePreference,
     });
 
     if (!visibilityPolicy.allowed) {
@@ -74,6 +77,10 @@ export async function GET(request, { params }) {
 
     const hydratedJob = {
       ...normalizedJob,
+      eligibility: {
+        reason: visibilityPolicy.reason,
+        ...(visibilityPolicy.metadata?.eligibility || {}),
+      },
       organizations: {
         org_name: organizationProfile?.full_name || "Private Employer",
         org_type: organizationProfile?.role || "organization",

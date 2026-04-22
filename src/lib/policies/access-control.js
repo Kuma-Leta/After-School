@@ -1,4 +1,7 @@
-import { isJobVisibleToUser, normalizeLocation } from "@/lib/jobs/visibility";
+import {
+  evaluateLocationAwareJobEligibility,
+  normalizeLocation,
+} from "@/lib/jobs/visibility";
 import { validateJobModel } from "@/lib/jobs/model";
 import { evaluateEmployerContactEntitlement } from "@/lib/policies/contact-entitlement";
 
@@ -77,6 +80,7 @@ export function evaluateJobVisibilityPolicy({
   job,
   userProfile,
   includeRemotePartTime = false,
+  candidateRemotePreference = false,
 }) {
   const validationResult = validateJobModel(job);
   if (!validationResult.isValid) {
@@ -117,24 +121,29 @@ export function evaluateJobVisibilityPolicy({
     };
   }
 
-  const canAccess = isJobVisibleToUser(
+  const eligibility = evaluateLocationAwareJobEligibility(
     validationResult.normalized,
     userLocation,
     {
       includeRemotePartTime,
+      candidateRemotePreference,
     },
   );
 
-  if (!canAccess) {
+  if (!eligibility.eligible) {
     return {
       allowed: false,
       status: 403,
-      reason: "job_visibility_restricted",
+      reason: eligibility.reason || "job_visibility_restricted",
       message:
-        "You can only access jobs in your city or remote part-time jobs.",
+        eligibility.reason === "candidate_remote_preference_disabled"
+          ? "This job supports remote work, but your remote preference is not enabled."
+          : "You can only access jobs in your city or jobs that match your remote preference.",
       metadata: {
         userLocation,
         includeRemotePartTime,
+        candidateRemotePreference,
+        eligibility: eligibility.checks,
       },
     };
   }
@@ -142,10 +151,12 @@ export function evaluateJobVisibilityPolicy({
   return {
     allowed: true,
     normalizedJob: validationResult.normalized,
-    reason: "visible",
+    reason: eligibility.reason || "visible",
     metadata: {
       userLocation,
       includeRemotePartTime,
+      candidateRemotePreference,
+      eligibility: eligibility.checks,
     },
   };
 }
@@ -156,6 +167,7 @@ export async function evaluateApplicationEligibility({
   jobId,
   applicantProfile,
   includeRemotePartTime = true,
+  candidateRemotePreference = false,
 }) {
   if (!applicantId || !jobId) {
     return {
@@ -242,6 +254,7 @@ export async function evaluateApplicationEligibility({
     job,
     userProfile: profile,
     includeRemotePartTime,
+    candidateRemotePreference,
   });
 
   if (!visibility.allowed) {

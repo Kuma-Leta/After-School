@@ -46,6 +46,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const includeRemotePartTime =
       searchParams.get("includeRemotePartTime") === "true";
+    const candidateRemotePreference =
+      searchParams.get("candidateRemotePreference") === "true";
 
     const actorContext = await requireActorContext(supabase);
     const user = actorContext.ok ? actorContext.actor : null;
@@ -91,6 +93,7 @@ export async function GET(request) {
         job: validJobs[0],
         userProfile: profile,
         includeRemotePartTime,
+        candidateRemotePreference,
       });
 
       if (
@@ -103,6 +106,7 @@ export async function GET(request) {
             policy: {
               enforced: true,
               includeRemotePartTime,
+              candidateRemotePreference,
               reason: firstCheck.reason,
             },
             message: firstCheck.message,
@@ -118,10 +122,17 @@ export async function GET(request) {
             job,
             userProfile: profile,
             includeRemotePartTime,
+            candidateRemotePreference,
           }),
         }))
         .filter((entry) => entry.policy.allowed)
-        .map((entry) => entry.policy.normalizedJob || entry.job);
+        .map((entry) => ({
+          ...(entry.policy.normalizedJob || entry.job),
+          eligibility: {
+            reason: entry.policy.reason,
+            ...(entry.policy.metadata?.eligibility || {}),
+          },
+        }));
     }
 
     const enrichedJobs = await enrichJobsWithOrganizations(
@@ -134,6 +145,7 @@ export async function GET(request) {
       policy: {
         enforced: isTalentRole(role),
         includeRemotePartTime,
+        candidateRemotePreference,
         userLocation: profile?.location || null,
       },
     });

@@ -163,7 +163,7 @@ export default function HomePage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/jobs/feed?includeRemotePartTime=${includeRemotePartTime}`,
+        `/api/jobs/feed?includeRemotePartTime=${includeRemotePartTime}&candidateRemotePreference=${remoteOnlyPreferred}`,
         {
           method: "GET",
           headers: {
@@ -192,7 +192,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [includeRemotePartTime]);
+  }, [includeRemotePartTime, remoteOnlyPreferred]);
 
   const loadViewerRole = useCallback(async () => {
     try {
