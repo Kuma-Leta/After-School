@@ -31,6 +31,10 @@ function normalizeText(value) {
   return (value || "").toString().trim();
 }
 
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj || {}, key);
+}
+
 function inferJobMode(job) {
   const explicitMode = normalizeText(job?.job_mode).toLowerCase();
   if (JOB_MODE_VALUES.includes(explicitMode)) {
@@ -125,6 +129,18 @@ export function validateJobModel(job = {}) {
     !normalizeText(normalized.city)
   ) {
     errors.push("city is required when job_mode is onsite or hybrid.");
+  }
+
+  // Prevent contradictory combinations when both fields are provided.
+  if (hasOwn(job, "part_time") && hasOwn(job, "employment_type")) {
+    const partTimeFlag = job.part_time === true;
+    const isEmploymentPartTime = normalized.employment_type === "part_time";
+
+    if (partTimeFlag !== isEmploymentPartTime) {
+      errors.push(
+        "part_time must match employment_type='part_time' for a valid job configuration.",
+      );
+    }
   }
 
   return {
