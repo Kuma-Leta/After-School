@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 export default function PrivacySettings({ userId }) {
@@ -14,30 +14,60 @@ export default function PrivacySettings({ userId }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  const loadSettings = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
-  async function loadSettings() {
     try {
       const { data, error } = await supabase
         .from("privacy_settings")
         .select("*")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) {
+        if (error.code === "42P01") {
+          setMessage("Privacy settings are not available yet.");
+          return;
+        }
+        throw error;
+      }
+
       if (data) {
-        setSettings(data);
+        setSettings((prev) => ({
+          ...prev,
+          profile_visibility:
+            data.profile_visibility ?? prev.profile_visibility,
+          message_permission:
+            data.message_permission ?? prev.message_permission,
+          show_email: data.show_email ?? prev.show_email,
+          show_phone: data.show_phone ?? prev.show_phone,
+        }));
       }
     } catch (error) {
-      console.error("Error loading privacy settings:", error);
+      console.error("Error loading privacy settings:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+      });
+      setMessage("Unable to load privacy settings right now.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [userId]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   async function saveSettings() {
+    if (!userId) {
+      setMessage("User not found. Please refresh and try again.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -51,7 +81,11 @@ export default function PrivacySettings({ userId }) {
       if (error) throw error;
       setMessage("Privacy settings saved!");
     } catch (error) {
-      setMessage("Error saving settings. Please try again.");
+      if (error?.code === "42P01") {
+        setMessage("Privacy settings are not available yet.");
+      } else {
+        setMessage("Error saving settings. Please try again.");
+      }
     } finally {
       setSaving(false);
     }
