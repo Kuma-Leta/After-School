@@ -4,8 +4,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 
-import { Check, X } from "lucide-react";
-import ProfilePage from "../../profile/page";
 export default function ProfileSettings({ user, profile, onUpdate }) {
   const [formData, setFormData] = useState({
     full_name: "",
@@ -45,7 +43,6 @@ export default function ProfileSettings({ user, profile, onUpdate }) {
     setFormData({ ...formData, languages: selected });
   };
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -72,16 +69,14 @@ export default function ProfileSettings({ user, profile, onUpdate }) {
       setLoading(false);
     }
   };
-// ...existing code...
-
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="w-full max-w-5xl mx-auto">
       <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
         Profile Settings
       </h2>
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           <div>
             <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
               Full Name
@@ -122,7 +117,7 @@ export default function ProfileSettings({ user, profile, onUpdate }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           <div>
             <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
               Location
@@ -150,7 +145,7 @@ export default function ProfileSettings({ user, profile, onUpdate }) {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           <div>
             <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">
               Date of Birth
@@ -189,19 +184,24 @@ export default function ProfileSettings({ user, profile, onUpdate }) {
           <LanguageSelector selected={formData.languages} onChange={handleLanguagesChange} />
         </div>
         {message.text && (
-          <div className={`p-3 rounded-md ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div
+            role="status"
+            aria-live="polite"
+            className={`p-3 rounded-md ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+          >
             {message.text}
           </div>
         )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          {loading ? 'Updating...' : 'Update Profile'}
-        </button>
+        <div className="pt-1">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {loading ? 'Updating...' : 'Update Profile'}
+          </button>
+        </div>
       </form>
-      <ProfilePage />
     </div>
   );
 }
@@ -233,7 +233,7 @@ function LanguageSelector({ selected = [], onChange }) {
           key={lang}
           type="button"
           onClick={() => toggle(lang)}
-          className={`px-3 py-1 sm:px-4 sm:py-2 rounded-full text-sm font-medium transition-colors ${
+          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm font-medium transition-colors ${
             selected.includes(lang)
               ? "bg-[#FF1E00] text-white"
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
