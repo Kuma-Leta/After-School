@@ -7,6 +7,7 @@ const paymentOptions = ["all", "paid", "pending", "unpaid"];
 
 export default function SubscriptionManagementPanel() {
   const [items, setItems] = useState([]);
+  const [paymentRequests, setPaymentRequests] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 20,
@@ -19,6 +20,7 @@ export default function SubscriptionManagementPanel() {
   const [tier, setTier] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [busyUserId, setBusyUserId] = useState("");
+  const [busyRequestId, setBusyRequestId] = useState("");
 
   const params = useMemo(
     () =>
@@ -60,9 +62,34 @@ export default function SubscriptionManagementPanel() {
     }
   };
 
+  const loadPaymentRequests = async () => {
+    try {
+      const response = await fetch(
+        "/api/admin/payment-requests?status=pending",
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to load payment requests.");
+      }
+
+      setPaymentRequests(result.items || []);
+    } catch (requestError) {
+      setError(requestError.message || "Failed to load payment requests.");
+    }
+  };
+
   useEffect(() => {
     loadSubscriptions();
   }, [params]);
+
+  useEffect(() => {
+    loadPaymentRequests();
+  }, []);
 
   const updateSubscription = async (userId, payload) => {
     try {
@@ -92,6 +119,45 @@ export default function SubscriptionManagementPanel() {
       setError(updateError.message || "Failed to update subscription.");
     } finally {
       setBusyUserId("");
+    }
+  };
+
+  const verifyPaymentRequest = async (requestId, action) => {
+    try {
+      setBusyRequestId(requestId);
+
+      const response = await fetch(`/api/admin/payment-requests/${requestId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ action }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to verify payment request.");
+      }
+
+      setPaymentRequests((prev) =>
+        prev.filter((request) => request.id !== requestId),
+      );
+
+      if (result.profile?.id) {
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === result.profile.id
+              ? { ...item, ...result.profile }
+              : item,
+          ),
+        );
+      }
+    } catch (verifyError) {
+      setError(verifyError.message || "Failed to verify payment request.");
+    } finally {
+      setBusyRequestId("");
     }
   };
 
@@ -162,6 +228,108 @@ export default function SubscriptionManagementPanel() {
           {error}
         </div>
       )}
+
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 px-4 py-3">
+          <h3 className="text-base font-semibold text-gray-900">
+            Pending Bank Transfer Verifications
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  User
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Method
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Amount
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Proof
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Submitted
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {paymentRequests.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
+                    No pending payment proofs.
+                  </td>
+                </tr>
+              )}
+              {paymentRequests.map((request) => (
+                <tr key={request.id}>
+                  <td className="px-4 py-4">
+                    <p className="font-medium text-gray-900">
+                      {request.profile?.full_name || "No Name"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {request.profile?.email || "No email"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-700 capitalize">
+                    {(request.method || "").replace("_", " ")}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-700">
+                    {request.currency} {request.amount}
+                  </td>
+                  <td className="px-4 py-4 text-sm">
+                    {request.proof_url ? (
+                      <a
+                        href={request.proof_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-700 underline"
+                      >
+                        View screenshot
+                      </a>
+                    ) : (
+                      <span className="text-gray-500">No proof</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-700">
+                    {request.created_at
+                      ? new Date(request.created_at).toLocaleDateString()
+                      : "-"}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        disabled={busyRequestId === request.id}
+                        onClick={() =>
+                          verifyPaymentRequest(request.id, "approve")
+                        }
+                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={busyRequestId === request.id}
+                        onClick={() =>
+                          verifyPaymentRequest(request.id, "reject")
+                        }
+                        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">

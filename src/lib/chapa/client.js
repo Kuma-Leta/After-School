@@ -24,7 +24,7 @@ export async function initializePayment({
       first_name,
       last_name,
       tx_ref,
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/chapa/webhook`,
+      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/chappa/webhook`,
       return_url,
     }),
   });

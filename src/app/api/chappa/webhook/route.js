@@ -1,12 +1,30 @@
-// app/api/chapa/webhook/route.js
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { supabase } from "@/lib/supabase/client";
 import { verifyPayment } from "@/lib/chapa/client";
-import { updateSubscriptionAfterPayment } from "@/lib/subscription/subscription";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+function createServiceRoleClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing Supabase service-role configuration.");
+  }
+
+  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
+
+function calculateSubscriptionEndDate() {
+  const endDate = new Date();
+  endDate.setFullYear(endDate.getFullYear() + 1);
+  return endDate.toISOString();
+}
 
 export async function POST(request) {
   try {
+    const adminClient = createServiceRoleClient();
     const body = await request.text();
     const signature = request.headers.get("x-chapa-signature");
 
@@ -16,39 +34,65 @@ export async function POST(request) {
       .update(body)
       .digest("hex");
 
-    if (hash !== signature) {
+    if (signature && hash !== signature) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const payload = JSON.parse(body);
     const { tx_ref, status } = payload;
 
+    if (!tx_ref) {
+      return NextResponse.json({ error: "Missing tx_ref" }, { status: 400 });
+    }
+
     if (status === "success") {
-      // Verify the payment with Chapa API
       const verification = await verifyPayment(tx_ref);
-      if (verification.data.status === "success") {
-        // Find user associated with this tx_ref
-        const { data: payment } = await supabase
-          .from("payments")
-          .select("user_id")
+      if (verification?.data?.status === "success") {
+        const { data: upgradeRequest, error: requestError } = await adminClient
+          .from("payment_upgrade_requests")
+          .select("id, user_id")
           .eq("tx_ref", tx_ref)
           .single();
 
-        if (payment) {
-          const periodEnd = new Date();
-          periodEnd.setMonth(periodEnd.getMonth() + 1); // one month subscription
-
-          await updateSubscriptionAfterPayment(
-            payment.user_id,
-            tx_ref,
-            periodEnd,
+        if (requestError || !upgradeRequest) {
+          throw new Error(
+            requestError?.message || "Upgrade request not found.",
           );
+        }
 
-          // Update payment status
-          await supabase
-            .from("payments")
-            .update({ status: "completed" })
-            .eq("tx_ref", tx_ref);
+        const nowIso = new Date().toISOString();
+
+        const { error: requestUpdateError } = await adminClient
+          .from("payment_upgrade_requests")
+          .update({
+            status: "paid",
+            verified_at: nowIso,
+            updated_at: nowIso,
+            metadata: { verification },
+          })
+          .eq("id", upgradeRequest.id);
+
+        if (requestUpdateError) {
+          throw new Error(
+            requestUpdateError.message || "Failed to update request.",
+          );
+        }
+
+        const { error: profileError } = await adminClient
+          .from("profiles")
+          .update({
+            subscription_tier: "premium",
+            payment_status: "paid",
+            subscription_end_date: calculateSubscriptionEndDate(),
+            last_payment_date: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", upgradeRequest.user_id);
+
+        if (profileError) {
+          throw new Error(
+            profileError.message || "Failed to update user profile.",
+          );
         }
       }
     }

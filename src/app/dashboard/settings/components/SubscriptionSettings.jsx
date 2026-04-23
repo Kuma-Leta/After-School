@@ -4,8 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { CreditCard, Calendar, CheckCircle, AlertCircle } from "lucide-react";
 
-export default function SubscriptionSettings({ user, subscription, onUpdate }) {
+const ELIGIBLE_ROLES = ["teacher", "student"];
+
+export default function SubscriptionSettings({
+  user,
+  profile,
+  subscription,
+  onUpdate,
+}) {
   const [loading, setLoading] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [proofFile, setProofFile] = useState(null);
+  const [message, setMessage] = useState("");
+
+  const normalizedRole = (profile?.role || "").toLowerCase();
+  const canUpgrade = ELIGIBLE_ROLES.includes(normalizedRole);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -55,6 +68,98 @@ export default function SubscriptionSettings({ user, subscription, onUpdate }) {
   };
 
   const plan = getPlanDetails();
+
+  const startChappaUpgrade = async () => {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/payment/upgrade/chappa", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to initialize Chappa payment.");
+      }
+
+      if (!result.checkoutUrl) {
+        throw new Error("Checkout URL missing from payment gateway response.");
+      }
+
+      onUpdate?.((prev) => ({
+        ...(prev || {}),
+        payment_status: "pending",
+      }));
+
+      window.location.href = result.checkoutUrl;
+    } catch (error) {
+      setMessage(error.message || "Could not start Chappa payment.");
+      setLoading(false);
+    }
+  };
+
+  const submitBankTransferProof = async () => {
+    if (!proofFile) {
+      setMessage("Please attach a screenshot of your transfer receipt first.");
+      return;
+    }
+
+    setUploadingProof(true);
+    setMessage("");
+
+    try {
+      const uploadForm = new FormData();
+      uploadForm.append("file", proofFile);
+
+      const uploadResponse = await fetch("/api/payment/upgrade/proof-upload", {
+        method: "POST",
+        body: uploadForm,
+      });
+
+      const uploadResult = await uploadResponse.json();
+      if (!uploadResponse.ok) {
+        throw new Error(
+          uploadResult.error || "Failed to upload proof screenshot.",
+        );
+      }
+
+      const submitResponse = await fetch("/api/payment/upgrade/bank-transfer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          proofUrl: uploadResult.proofUrl,
+          proofPath: uploadResult.proofPath,
+        }),
+      });
+
+      const submitResult = await submitResponse.json();
+      if (!submitResponse.ok) {
+        throw new Error(
+          submitResult.error || "Failed to submit bank transfer request.",
+        );
+      }
+
+      onUpdate?.((prev) => ({
+        ...(prev || {}),
+        payment_status: "pending",
+      }));
+      setProofFile(null);
+      setMessage(
+        "Bank transfer proof submitted. Admin will verify and activate your upgrade.",
+      );
+    } catch (error) {
+      setMessage(error.message || "Failed to submit bank transfer proof.");
+    } finally {
+      setUploadingProof(false);
+    }
+  };
 
   return (
     <div>
@@ -134,7 +239,7 @@ export default function SubscriptionSettings({ user, subscription, onUpdate }) {
       </div>
 
       {/* Upgrade Options */}
-      {subscription?.subscriptionTier !== "pro" && (
+      {subscription?.subscriptionTier !== "pro" && canUpgrade && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -142,19 +247,77 @@ export default function SubscriptionSettings({ user, subscription, onUpdate }) {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-blue-900 mb-2">
-                Upgrade to Pro
+                Upgrade for Teachers and University Students
               </h3>
               <p className="text-blue-800 text-sm mb-4">
-                Get unlimited messaging, job postings, and priority support.
+                Choose Chappa for instant checkout, or pay by bank transfer and
+                upload your receipt for admin verification.
               </p>
-              <Link
-                href="/pricing"
-                className="inline-flex items-center px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] transition-colors"
-              >
-                View Plans
-              </Link>
+
+              <div className="flex flex-wrap gap-3 mb-4">
+                <button
+                  onClick={startChappaUpgrade}
+                  disabled={loading || uploadingProof}
+                  className="inline-flex items-center px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-60 transition-colors"
+                >
+                  {loading ? "Redirecting..." : "Pay with Chappa"}
+                </button>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-900 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  View Plan Details
+                </Link>
+              </div>
+
+              <div className="rounded-lg border border-blue-200 bg-white p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  Bank transfer
+                </p>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p>Bank: Commercial Bank of Ethiopia</p>
+                  <p>Account Name: Afterschool Technologies</p>
+                  <p>Account Number: 1000123456789</p>
+                </div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) =>
+                    setProofFile(event.target.files?.[0] || null)
+                  }
+                  className="block w-full text-sm text-gray-700"
+                />
+                <button
+                  onClick={submitBankTransferProof}
+                  disabled={uploadingProof || loading}
+                  className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-60"
+                >
+                  {uploadingProof
+                    ? "Uploading proof..."
+                    : "Submit bank transfer proof"}
+                </button>
+              </div>
+
+              {message && (
+                <p
+                  className="mt-3 text-sm text-blue-900"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {message}
+                </p>
+              )}
             </div>
           </div>
+        </div>
+      )}
+
+      {subscription?.subscriptionTier !== "pro" && !canUpgrade && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-6">
+          <p className="text-sm text-gray-700">
+            Upgrades are currently available for teacher and university student
+            accounts.
+          </p>
         </div>
       )}
 

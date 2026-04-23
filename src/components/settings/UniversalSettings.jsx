@@ -111,6 +111,7 @@ export default function UniversalSettings() {
               {activeTab === "subscription" && (
                 <SubscriptionSettings
                   user={user}
+                  profile={profile}
                   subscription={subscription}
                   onUpdate={setSubscription}
                 />
