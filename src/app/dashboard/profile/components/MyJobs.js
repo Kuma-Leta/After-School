@@ -41,6 +41,42 @@ const GRADE_LEVELS = [
   "Adult Education",
 ];
 
+function getReadableErrorMessage(error) {
+  if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "object") {
+    const errorParts = [error.message, error.details, error.hint, error.code]
+      .filter(Boolean)
+      .map((part) => String(part).trim());
+
+    if (errorParts.length > 0) {
+      return errorParts.join(" | ");
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unexpected error object";
+    }
+  }
+
+  return String(error);
+}
+
+function getMissingJobsColumnFromSchemaCacheError(error) {
+  const message = getReadableErrorMessage(error);
+  const match = message.match(
+    /could not find the '([^']+)' column of 'jobs' in the schema cache/i,
+  );
+
+  return match?.[1] || null;
+}
+
 export default function MyJobs() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
@@ -125,6 +161,11 @@ export default function MyJobs() {
     e.preventDefault();
 
     try {
+      if (!user?.id) {
+        alert("You must be logged in to post a job.");
+        return;
+      }
+
       const validationResult = validateJobModel(formData);
       if (!validationResult.isValid) {
         alert(validationResult.errors.join("\n"));
@@ -137,7 +178,6 @@ export default function MyJobs() {
         ...formData,
         ...normalizedFormData,
         organization_id: user.id,
-        organization_type: "organization", // This should match the user's role
         requirements: formData.requirements
           .split("\n")
           .filter((req) => req.trim()),
@@ -150,27 +190,58 @@ export default function MyJobs() {
         updated_at: new Date().toISOString(),
       };
 
-      if (editingJob) {
-        // Update existing job
-        const { error } = await supabase
-          .from("jobs")
-          .update(jobData)
-          .eq("id", editingJob.id);
+      const saveJob = async (payload) => {
+        if (editingJob) {
+          return await supabase
+            .from("jobs")
+            .update(payload)
+            .eq("id", editingJob.id);
+        }
 
-        if (error) throw error;
-      } else {
-        // Create new job
-        const { error } = await supabase.from("jobs").insert([jobData]);
+        return await supabase.from("jobs").insert([payload]);
+      };
 
-        if (error) throw error;
+      let payload = { ...jobData };
+      let error = null;
+      const removedColumns = new Set();
+
+      while (true) {
+        const result = await saveJob(payload);
+        error = result.error;
+
+        if (!error) {
+          break;
+        }
+
+        const missingColumn = getMissingJobsColumnFromSchemaCacheError(error);
+        const canRetry =
+          missingColumn &&
+          Object.prototype.hasOwnProperty.call(payload, missingColumn) &&
+          !removedColumns.has(missingColumn);
+
+        if (!canRetry) {
+          break;
+        }
+
+        removedColumns.add(missingColumn);
+
+        // Keep legacy location data if city is the missing modern column.
+        if (missingColumn === "city" && !payload.location && payload.city) {
+          payload.location = payload.city;
+        }
+
+        delete payload[missingColumn];
       }
+
+      if (error) throw error;
 
       // Reset form and reload jobs
       resetForm();
       loadJobs();
     } catch (error) {
-      console.error("Error saving job:", error);
-      alert("Failed to save job. Please try again.");
+      const message = getReadableErrorMessage(error);
+      console.error("Error saving job:", message, error);
+      alert(`Failed to save job. ${message}`);
     }
   };
 
