@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -366,7 +367,16 @@ export default function ApplicationsPage() {
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                            {app.job?.title || "Untitled Job"}
+                            {app.job?.id ? (
+                              <Link
+                                href={`/jobs/${app.job.id}`}
+                                className="text-gray-900 hover:text-[#FF1E00] hover:underline"
+                              >
+                                {app.job.title || "Untitled Job"}
+                              </Link>
+                            ) : (
+                              app.job?.title || "Untitled Job"
+                            )}
                           </h3>
 
                           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mb-2">
