@@ -17,7 +17,8 @@ export async function GET(request, { params }) {
     const candidateRemotePreference =
       searchParams.get("candidateRemotePreference") === "true";
 
-    const jobId = params?.jobId;
+    const resolvedParams = await params;
+    const jobId = resolvedParams?.jobId;
 
     if (!jobId) {
       return NextResponse.json({ error: "Missing job id" }, { status: 400 });
