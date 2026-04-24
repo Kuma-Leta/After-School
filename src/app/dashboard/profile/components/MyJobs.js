@@ -11,6 +11,7 @@ import {
   normalizeJobModel,
   validateJobModel,
 } from "@/lib/jobs/model";
+import { isDeadlineExpired } from "@/lib/jobs/deadline";
 const SUBJECTS = [
   "Mathematics",
   "Physics",
@@ -331,7 +332,7 @@ export default function MyJobs() {
   };
 
   const isJobExpired = (deadline) => {
-    return new Date(deadline) < new Date();
+    return isDeadlineExpired(deadline);
   };
 
   if (loading) {

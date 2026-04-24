@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isDeadlineActive } from "@/lib/jobs/deadline";
 import { evaluateJobVisibilityPolicy } from "@/lib/policies/access-control";
 import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import {
   denyWithPolicy,
   requireActorContext,
 } from "@/lib/policies/policy-middleware";
-
-function isDeadlineActive(job) {
-  if (!job?.application_deadline) return true;
-  return new Date(job.application_deadline) >= new Date();
-}
 
 export async function GET(request, { params }) {
   try {
@@ -50,7 +46,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    if (!job || !isDeadlineActive(job)) {
+    if (!job || !isDeadlineActive(job?.application_deadline)) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 

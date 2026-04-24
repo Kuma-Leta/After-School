@@ -3,6 +3,7 @@ import {
   normalizeLocation,
 } from "@/lib/jobs/visibility";
 import { validateJobModel } from "@/lib/jobs/model";
+import { isDeadlineActive } from "@/lib/jobs/deadline";
 import { evaluateEmployerContactEntitlement } from "@/lib/policies/contact-entitlement";
 
 export const EMPLOYER_ROLES = ["school", "ngo", "family"];
@@ -15,11 +16,6 @@ export const APPLICATION_STATUS_UPDATES = [
   "hired",
   "rejected",
 ];
-
-function isDeadlineActive(job) {
-  if (!job?.application_deadline) return true;
-  return new Date(job.application_deadline) >= new Date();
-}
 
 function isCandidateSubscriptionActive(profile) {
   if (!profile) return false;

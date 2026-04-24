@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isDeadlineActive } from "@/lib/jobs/deadline";
 import { validateJobModel } from "@/lib/jobs/model";
 import {
   evaluateJobVisibilityPolicy,
@@ -7,11 +8,6 @@ import {
 } from "@/lib/policies/access-control";
 import { loadEffectivePolicyControls } from "@/lib/policies/policy-controls";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
-
-function isDeadlineActive(job) {
-  if (!job?.application_deadline) return true;
-  return new Date(job.application_deadline) >= new Date();
-}
 
 async function enrichJobsWithOrganizations(supabase, jobs) {
   return Promise.all(
@@ -68,7 +64,9 @@ export async function GET(request) {
       );
     }
 
-    const activeJobs = (jobsData || []).filter(isDeadlineActive);
+    const activeJobs = (jobsData || []).filter((job) =>
+      isDeadlineActive(job?.application_deadline),
+    );
     const validJobs = activeJobs
       .map((job) => {
         const { isValid, normalized } = validateJobModel(job);
