@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { TALENT_ROLES } from "@/lib/policies/access-control";
+import { TALENT_ROLES, isEmployerRole } from "@/lib/policies/access-control";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
 import { createServiceRoleClient } from "@/features/admin/server/auth";
 import {
@@ -9,6 +9,40 @@ import {
 } from "@/lib/interviews/errors";
 
 const DEFAULT_SCHEDULE_LINK = "/dashboard/schedule";
+
+function validateProposedInterviewWindow(startAt, endAt) {
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { ok: false, error: "Invalid proposed interview date or time." };
+  }
+
+  if (end <= start) {
+    return {
+      ok: false,
+      error: "The interview end time must be later than the start time.",
+    };
+  }
+
+  const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+  if (durationMinutes < 20 || durationMinutes > 240) {
+    return {
+      ok: false,
+      error: "Interview proposals must be between 20 and 240 minutes.",
+    };
+  }
+
+  if (start.getTime() <= Date.now()) {
+    return { ok: false, error: "Interview proposals must be in the future." };
+  }
+
+  return {
+    ok: true,
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
+}
 
 function createDbErrorResponse(error, fallbackMessage) {
   if (isInterviewSchedulingMissingTableError(error)) {
@@ -251,7 +285,7 @@ export async function GET() {
       )
       .order("created_at", { ascending: false });
 
-    if (actorRole === "school") {
+    if (isEmployerRole(actorRole)) {
       query = query.eq("requester_school_id", actorId);
     } else if (isTalentRole(actorRole)) {
       query = query.eq("tutor_id", actorId);
@@ -286,9 +320,9 @@ export async function POST(request) {
     const actorId = actorContext.actor.id;
     const actorRole = (actorContext.profile?.role || "").toLowerCase();
 
-    if (actorRole !== "school") {
+    if (!isEmployerRole(actorRole)) {
       return NextResponse.json(
-        { error: "Only schools can request interview slots." },
+        { error: "Only employers can request interview slots." },
         { status: 403 },
       );
     }
@@ -297,37 +331,17 @@ export async function POST(request) {
     const availabilitySlotId = body?.availabilitySlotId;
     const applicationId = body?.applicationId;
     const message = (body?.message || "").toString().trim().slice(0, 500);
+    const proposedStartAt = body?.proposedStartAt;
+    const proposedEndAt = body?.proposedEndAt;
+    const timezone = (body?.timezone || "UTC").toString().slice(0, 80);
+    const notes = (body?.notes || "").toString().trim().slice(0, 500);
 
-    if (!availabilitySlotId || !applicationId) {
+    if (!applicationId || (!availabilitySlotId && !proposedStartAt)) {
       return NextResponse.json(
-        { error: "availabilitySlotId and applicationId are required." },
-        { status: 400 },
-      );
-    }
-
-    const { data: slot, error: slotError } = await supabase
-      .from("interview_availability_slots")
-      .select("id, tutor_id, start_at, status")
-      .eq("id", availabilitySlotId)
-      .maybeSingle();
-
-    if (slotError) {
-      return createDbErrorResponse(
-        slotError,
-        "Failed to load availability slot.",
-      );
-    }
-
-    if (!slot || slot.status !== "open") {
-      return NextResponse.json(
-        { error: "This availability slot is no longer open." },
-        { status: 409 },
-      );
-    }
-
-    if (new Date(slot.start_at).getTime() <= Date.now()) {
-      return NextResponse.json(
-        { error: "Past interview slots cannot be requested." },
+        {
+          error:
+            "applicationId and either availabilitySlotId or a proposed interview time are required.",
+        },
         { status: 400 },
       );
     }
@@ -340,16 +354,6 @@ export async function POST(request) {
 
     if (appError) {
       return createDbErrorResponse(appError, "Failed to load application.");
-    }
-
-    if (!application || application.applicant_id !== slot.tutor_id) {
-      return NextResponse.json(
-        {
-          error:
-            "Application does not belong to the selected tutor for this slot.",
-        },
-        { status: 400 },
-      );
     }
 
     if (!["shortlisted", "interviewing"].includes(application.status)) {
@@ -382,10 +386,90 @@ export async function POST(request) {
       );
     }
 
+    let resolvedAvailabilitySlotId = availabilitySlotId || null;
+    let slot = null;
+
+    if (resolvedAvailabilitySlotId) {
+      const { data: loadedSlot, error: slotError } = await supabase
+        .from("interview_availability_slots")
+        .select("id, tutor_id, start_at, status")
+        .eq("id", resolvedAvailabilitySlotId)
+        .maybeSingle();
+
+      if (slotError) {
+        return createDbErrorResponse(
+          slotError,
+          "Failed to load availability slot.",
+        );
+      }
+
+      if (!loadedSlot || loadedSlot.status !== "open") {
+        return NextResponse.json(
+          { error: "This availability slot is no longer open." },
+          { status: 409 },
+        );
+      }
+
+      if (new Date(loadedSlot.start_at).getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: "Past interview slots cannot be requested." },
+          { status: 400 },
+        );
+      }
+
+      if (application.applicant_id !== loadedSlot.tutor_id) {
+        return NextResponse.json(
+          {
+            error:
+              "Application does not belong to the selected tutor for this slot.",
+          },
+          { status: 400 },
+        );
+      }
+
+      slot = loadedSlot;
+    } else {
+      const proposedWindow = validateProposedInterviewWindow(
+        proposedStartAt,
+        proposedEndAt,
+      );
+
+      if (!proposedWindow.ok) {
+        return NextResponse.json(
+          { error: proposedWindow.error },
+          { status: 400 },
+        );
+      }
+
+      const adminClient = createServiceRoleClient();
+      const { data: createdSlot, error: createSlotError } = await adminClient
+        .from("interview_availability_slots")
+        .insert({
+          tutor_id: application.applicant_id,
+          start_at: proposedWindow.startIso,
+          end_at: proposedWindow.endIso,
+          timezone,
+          notes,
+          status: "open",
+        })
+        .select("id, tutor_id, start_at, end_at, timezone, notes, status")
+        .single();
+
+      if (createSlotError) {
+        return createDbErrorResponse(
+          createSlotError,
+          "Failed to create interview proposal.",
+        );
+      }
+
+      resolvedAvailabilitySlotId = createdSlot.id;
+      slot = createdSlot;
+    }
+
     const { data: existing, error: existingError } = await supabase
       .from("interview_slot_requests")
       .select("id")
-      .eq("availability_slot_id", availabilitySlotId)
+      .eq("availability_slot_id", resolvedAvailabilitySlotId)
       .in("status", ["pending", "accepted"])
       .limit(1);
 
@@ -407,9 +491,9 @@ export async function POST(request) {
     const { data: inserted, error: insertError } = await supabase
       .from("interview_slot_requests")
       .insert({
-        availability_slot_id: availabilitySlotId,
+        availability_slot_id: resolvedAvailabilitySlotId,
         application_id: applicationId,
-        tutor_id: slot.tutor_id,
+        tutor_id: application.applicant_id,
         requester_school_id: actorId,
         status: "pending",
         message,
@@ -441,8 +525,8 @@ export async function POST(request) {
         applicationId: inserted.application_id,
         availabilitySlotId: inserted.availability_slot_id,
         status: inserted.status,
-        slotStartAt: detailedRequest?.slot?.start_at || null,
-        slotEndAt: detailedRequest?.slot?.end_at || null,
+        slotStartAt: detailedRequest?.slot?.start_at || slot?.start_at || null,
+        slotEndAt: detailedRequest?.slot?.end_at || slot?.end_at || null,
       },
     });
 

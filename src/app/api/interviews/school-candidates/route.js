@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireActorContext } from "@/lib/policies/policy-middleware";
+import { isEmployerRole } from "@/lib/policies/access-control";
 import {
   buildInterviewSchedulingSetupErrorResponsePayload,
   isInterviewSchedulingMissingTableError,
@@ -32,9 +33,9 @@ export async function GET() {
     const actorId = actorContext.actor.id;
     const actorRole = (actorContext.profile?.role || "").toLowerCase();
 
-    if (actorRole !== "school") {
+    if (!isEmployerRole(actorRole)) {
       return NextResponse.json(
-        { error: "Only schools can access this endpoint." },
+        { error: "Only employers can access this endpoint." },
         { status: 403 },
       );
     }

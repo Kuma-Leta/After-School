@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useChat } from "@/hooks/useChat";
 import ConversationList from "@/components/chat/ConversationList";
@@ -9,10 +10,12 @@ import NewChatModal from "@/components/chat/NewChatModal";
 import { MessageSquare, Users, Clock, TrendingUp } from "lucide-react";
 
 export default function MessagesPage() {
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const autoOpeningConversationRef = useRef(false);
 
   const {
     conversations,
@@ -74,6 +77,61 @@ export default function MessagesPage() {
     setSelectedConversation(conversation);
     setShowNewChatModal(false);
   };
+
+  useEffect(() => {
+    const candidateId = searchParams.get("candidateId");
+
+    if (
+      !candidateId ||
+      !currentUser?.id ||
+      autoOpeningConversationRef.current ||
+      selectedConversation
+    ) {
+      return;
+    }
+
+    const existingConversation = conversations.find((conversation) => {
+      const participantIds = (conversation.participants || []).map(
+        (participant) =>
+          participant.user_id || participant.profile_id || participant.id,
+      );
+
+      return participantIds.includes(candidateId);
+    });
+
+    if (existingConversation) {
+      startTransition(() => {
+        setSelectedConversation(existingConversation);
+      });
+      return;
+    }
+
+    let isCancelled = false;
+    autoOpeningConversationRef.current = true;
+
+    createConversation([candidateId], false)
+      .then((conversation) => {
+        if (!isCancelled && conversation) {
+          setSelectedConversation(conversation);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCancelled) {
+          autoOpeningConversationRef.current = false;
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    searchParams,
+    currentUser,
+    selectedConversation,
+    conversations,
+    createConversation,
+  ]);
 
   // Calculate stats
   const totalConversations = conversations.length;

@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 const TUTOR_ROLES = ["teacher", "student"];
+const EMPLOYER_ROLES = ["school", "family", "ngo"];
 
 const INTERVIEW_SETUP_MESSAGE =
   "Interview scheduling is not configured yet. Please run migration 20260422_interview_scheduling.sql and refresh the Supabase schema cache.";
@@ -32,35 +35,6 @@ function formatDateTime(value) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
-}
-
-function formatDateLabel(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-function groupSlotsByDay(slots = []) {
-  const groups = new Map();
-  for (const slot of slots) {
-    const key = (slot.start_at || "").slice(0, 10);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(slot);
-  }
-
-  return Array.from(groups.entries())
-    .map(([day, daySlots]) => ({
-      day,
-      daySlots: daySlots.sort(
-        (a, b) => new Date(a.start_at) - new Date(b.start_at),
-      ),
-    }))
-    .sort((a, b) => new Date(a.day) - new Date(b.day));
 }
 
 function statusPill(status) {
@@ -120,18 +94,17 @@ function CalendarActions({ calendarLinks }) {
 
 export default function SchedulePage() {
   const { user, profile, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedApplicationId = searchParams.get("applicationId") || "";
 
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const [slots, setSlots] = useState([]);
   const [requests, setRequests] = useState([]);
 
   const [candidates, setCandidates] = useState([]);
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
-  const [selectedTutorId, setSelectedTutorId] = useState("");
-  const [candidateSlots, setCandidateSlots] = useState([]);
   const [requestMessage, setRequestMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -145,23 +118,12 @@ export default function SchedulePage() {
 
   const role = (profile?.role || "").toLowerCase();
   const isTutor = TUTOR_ROLES.includes(role);
-  const isSchool = role === "school";
+  const isEmployer = EMPLOYER_ROLES.includes(role);
 
   const loadTutorData = useCallback(async () => {
-    const [slotResponse, requestResponse] = await Promise.all([
-      fetch("/api/interviews/availability", { cache: "no-store" }),
-      fetch("/api/interviews/requests", { cache: "no-store" }),
-    ]);
-
-    const slotPayload = await slotResponse.json().catch(() => ({}));
-    if (!slotResponse.ok) {
-      throw new Error(
-        normalizeInterviewErrorMessage(
-          slotPayload,
-          "Failed to load availability slots.",
-        ),
-      );
-    }
+    const requestResponse = await fetch("/api/interviews/requests", {
+      cache: "no-store",
+    });
 
     const requestPayload = await requestResponse.json().catch(() => ({}));
     if (!requestResponse.ok) {
@@ -173,11 +135,10 @@ export default function SchedulePage() {
       );
     }
 
-    setSlots(slotPayload.slots || []);
     setRequests(requestPayload.requests || []);
   }, []);
 
-  const loadSchoolData = useCallback(async () => {
+  const loadEmployerData = useCallback(async () => {
     const [candidateResponse, requestResponse] = await Promise.all([
       fetch("/api/interviews/school-candidates", { cache: "no-store" }),
       fetch("/api/interviews/requests", { cache: "no-store" }),
@@ -207,41 +168,28 @@ export default function SchedulePage() {
     setCandidates(loadedCandidates);
     setRequests(requestPayload.requests || []);
 
+    const requestedCandidate = loadedCandidates.find(
+      (candidate) => candidate.applicationId === requestedApplicationId,
+    );
+    const fallbackCandidate = loadedCandidates[0] || null;
+    const nextCandidate = requestedCandidate || fallbackCandidate;
+
     if (loadedCandidates.length > 0) {
-      setSelectedApplicationId(
-        (prev) => prev || loadedCandidates[0].applicationId,
-      );
-      setSelectedTutorId((prev) => prev || loadedCandidates[0].candidateId);
+      setSelectedApplicationId((prev) => {
+        if (
+          prev &&
+          !requestedApplicationId &&
+          loadedCandidates.some((candidate) => candidate.applicationId === prev)
+        ) {
+          return prev;
+        }
+
+        return nextCandidate?.applicationId || "";
+      });
     } else {
       setSelectedApplicationId("");
-      setSelectedTutorId("");
-      setCandidateSlots([]);
     }
-  }, []);
-
-  const loadCandidateSlots = useCallback(async (tutorId) => {
-    if (!tutorId) {
-      setCandidateSlots([]);
-      return;
-    }
-
-    const response = await fetch(
-      `/api/interviews/availability?tutorId=${encodeURIComponent(tutorId)}`,
-      { cache: "no-store" },
-    );
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(
-        normalizeInterviewErrorMessage(
-          payload,
-          "Failed to load candidate availability.",
-        ),
-      );
-    }
-
-    setCandidateSlots(payload.slots || []);
-  }, []);
+  }, [requestedApplicationId]);
 
   const loadPageData = useCallback(async () => {
     if (!user || !profile) return;
@@ -252,15 +200,15 @@ export default function SchedulePage() {
     try {
       if (isTutor) {
         await loadTutorData();
-      } else if (isSchool) {
-        await loadSchoolData();
+      } else if (isEmployer) {
+        await loadEmployerData();
       }
     } catch (loadError) {
       setError(loadError.message || "Failed to load schedule data.");
     } finally {
       setPageLoading(false);
     }
-  }, [user, profile, isTutor, isSchool, loadTutorData, loadSchoolData]);
+  }, [user, profile, isTutor, isEmployer, loadTutorData, loadEmployerData]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -269,25 +217,18 @@ export default function SchedulePage() {
   }, [authLoading, loadPageData]);
 
   useEffect(() => {
-    if (isSchool && selectedTutorId) {
-      loadCandidateSlots(selectedTutorId).catch((slotError) => {
-        setError(slotError.message || "Failed to load candidate availability.");
-      });
+    if (!isEmployer || !requestedApplicationId || candidates.length === 0) {
+      return;
     }
-  }, [isSchool, selectedTutorId, loadCandidateSlots]);
 
-  const openSlots = useMemo(
-    () =>
-      (slots || [])
-        .filter((slot) => slot.status === "open")
-        .filter((slot) => new Date(slot.start_at).getTime() > Date.now()),
-    [slots],
-  );
+    const requestedCandidate = candidates.find(
+      (candidate) => candidate.applicationId === requestedApplicationId,
+    );
 
-  const groupedOpenSlots = useMemo(
-    () => groupSlotsByDay(openSlots),
-    [openSlots],
-  );
+    if (requestedCandidate) {
+      setSelectedApplicationId(requestedCandidate.applicationId);
+    }
+  }, [isEmployer, requestedApplicationId, candidates]);
 
   const incomingRequests = useMemo(
     () => requests.filter((request) => request.status === "pending"),
@@ -299,71 +240,13 @@ export default function SchedulePage() {
     [requests],
   );
 
-  const activeSchoolCandidate = useMemo(
+  const activeEmployerCandidate = useMemo(
     () =>
       candidates.find(
         (candidate) => candidate.applicationId === selectedApplicationId,
       ) || null,
     [candidates, selectedApplicationId],
   );
-
-  const handleAddSlot = async (event) => {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-
-    if (!form.date || !form.startTime || !form.endTime) {
-      setError("Date, start time, and end time are required.");
-      return;
-    }
-
-    const startAt = new Date(`${form.date}T${form.startTime}`);
-    const endAt = new Date(`${form.date}T${form.endTime}`);
-
-    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-      setError("Please enter valid time values.");
-      return;
-    }
-
-    const response = await fetch("/api/interviews/availability", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startAt: startAt.toISOString(),
-        endAt: endAt.toISOString(),
-        timezone: form.timezone,
-        notes: form.notes,
-      }),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setError(payload.error || "Failed to create interview slot.");
-      return;
-    }
-
-    setForm((prev) => ({ ...prev, notes: "", startTime: "", endTime: "" }));
-    setNotice("Interview availability slot added.");
-    await loadTutorData();
-  };
-
-  const handleCancelSlot = async (slotId) => {
-    setError("");
-    setNotice("");
-
-    const response = await fetch(`/api/interviews/availability/${slotId}`, {
-      method: "DELETE",
-    });
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      setError(payload.error || "Failed to cancel availability slot.");
-      return;
-    }
-
-    setNotice("Availability slot cancelled.");
-    await loadTutorData();
-  };
 
   const handleRespondToRequest = async (requestId, status) => {
     setError("");
@@ -387,13 +270,9 @@ export default function SchedulePage() {
 
   const handleCandidateSelection = (applicationId) => {
     setSelectedApplicationId(applicationId);
-    const selected = candidates.find(
-      (candidate) => candidate.applicationId === applicationId,
-    );
-    setSelectedTutorId(selected?.candidateId || "");
   };
 
-  const handleRequestSlot = async (availabilitySlotId) => {
+  const handleRequestInterview = async () => {
     setError("");
     setNotice("");
 
@@ -402,12 +281,28 @@ export default function SchedulePage() {
       return;
     }
 
+    if (!form.date || !form.startTime || !form.endTime) {
+      setError("Date, start time, and end time are required.");
+      return;
+    }
+
+    const startAt = new Date(`${form.date}T${form.startTime}`);
+    const endAt = new Date(`${form.date}T${form.endTime}`);
+
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+      setError("Please enter valid time values.");
+      return;
+    }
+
     const response = await fetch("/api/interviews/requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        availabilitySlotId,
         applicationId: selectedApplicationId,
+        proposedStartAt: startAt.toISOString(),
+        proposedEndAt: endAt.toISOString(),
+        timezone: form.timezone,
+        notes: form.notes,
         message: requestMessage,
       }),
     });
@@ -419,9 +314,16 @@ export default function SchedulePage() {
     }
 
     setRequestMessage("");
-    setNotice("Interview slot requested successfully.");
+    setForm((prev) => ({
+      ...prev,
+      date: "",
+      startTime: "",
+      endTime: "",
+      notes: "",
+    }));
+    setNotice("Interview request sent successfully.");
 
-    await Promise.all([loadSchoolData(), loadCandidateSlots(selectedTutorId)]);
+    await loadEmployerData();
   };
 
   if (authLoading || pageLoading) {
@@ -447,10 +349,10 @@ export default function SchedulePage() {
           </h1>
           <p className="text-gray-600 mt-1">
             {isTutor
-              ? "Publish your interview availability and respond to school requests."
-              : isSchool
-                ? "Request interview slots from available tutors/teachers."
-                : "Scheduling is currently available for tutors and schools."}
+              ? "Review interview proposals from employers and confirm the ones you want to take."
+              : isEmployer
+                ? "Propose interview times and let candidates accept or decline them."
+                : "Scheduling is currently available for tutors and employers."}
           </p>
         </div>
 
@@ -466,283 +368,124 @@ export default function SchedulePage() {
           </div>
         )}
 
-        {!isTutor && !isSchool && (
+        {!isTutor && !isEmployer && (
           <div className="rounded-xl bg-white border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
               Role Not Supported Yet
             </h2>
             <p className="text-gray-600">
               This feature currently supports teacher/student availability and
-              school interview requests.
+              employer interview requests.
             </p>
           </div>
         )}
 
         {isTutor && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 h-fit">
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Add Availability Slot
+                Incoming Interview Requests
               </h2>
-              <form onSubmit={handleAddSlot} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, date: event.target.value }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                    required
-                  />
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Time
-                    </label>
-                    <input
-                      type="time"
-                      value={form.startTime}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          startTime: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Time
-                    </label>
-                    <input
-                      type="time"
-                      value={form.endTime}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          endTime: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                      required
-                    />
-                  </div>
-                </div>
+              {incomingRequests.length === 0 ? (
+                <p className="text-gray-600">No pending interview requests.</p>
+              ) : (
+                <div className="space-y-3">
+                  {incomingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-lg border border-gray-200 p-4 flex flex-col gap-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-gray-900">
+                          {request.school?.full_name || "Employer"}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
+                        >
+                          {request.status}
+                        </span>
+                      </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Timezone
-                  </label>
-                  <input
-                    type="text"
-                    value={form.timezone}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        timezone: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                  />
-                </div>
+                      <p className="text-sm text-gray-700">
+                        Slot: {formatDateTime(request.slot?.start_at)} -{" "}
+                        {formatDateTime(request.slot?.end_at)}
+                      </p>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes (optional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={form.notes}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        notes: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
-                    placeholder="Interview format, meeting link, or preparation notes"
-                  />
-                </div>
+                      {request.message && (
+                        <p className="text-sm text-gray-600">
+                          Message: {request.message}
+                        </p>
+                      )}
 
-                <button
-                  type="submit"
-                  className="w-full rounded-lg bg-[#FF1E00] px-4 py-2.5 text-white font-medium hover:bg-[#E01B00]"
-                >
-                  Add Slot
-                </button>
-              </form>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRespondToRequest(request.id, "accepted")
+                          }
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRespondToRequest(request.id, "declined")
+                          }
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Open Availability Calendar
-                </h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Confirmed Interviews
+              </h2>
 
-                {groupedOpenSlots.length === 0 ? (
-                  <p className="text-gray-600">No open interview slots yet.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {groupedOpenSlots.map((group) => (
-                      <div
-                        key={group.day}
-                        className="border border-gray-200 rounded-lg p-4"
-                      >
-                        <h3 className="font-semibold text-gray-900 mb-3">
-                          {formatDateLabel(group.day)}
-                        </h3>
-                        <div className="space-y-2">
-                          {group.daySlots.map((slot) => (
-                            <div
-                              key={slot.id}
-                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2"
-                            >
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {formatDateTime(slot.start_at)} -{" "}
-                                  {new Date(slot.end_at).toLocaleTimeString(
-                                    [],
-                                    { hour: "numeric", minute: "2-digit" },
-                                  )}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {slot.timezone}
-                                  {slot.notes ? ` | ${slot.notes}` : ""}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleCancelSlot(slot.id)}
-                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
-                              >
-                                Cancel Slot
-                              </button>
-                            </div>
-                          ))}
-                        </div>
+              {acceptedRequests.length === 0 ? (
+                <p className="text-gray-600">No confirmed interviews yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {acceptedRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-lg border border-gray-200 p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-gray-900">
+                          {request.school?.full_name || "Employer"}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
+                        >
+                          {request.status}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Incoming Interview Requests
-                </h2>
-
-                {incomingRequests.length === 0 ? (
-                  <p className="text-gray-600">
-                    No pending interview requests.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {incomingRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="rounded-lg border border-gray-200 p-4 flex flex-col gap-3"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {request.school?.full_name || "School"}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
-                          >
-                            {request.status}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-gray-700">
-                          Slot: {formatDateTime(request.slot?.start_at)} -{" "}
-                          {formatDateTime(request.slot?.end_at)}
-                        </p>
-
-                        {request.message && (
-                          <p className="text-sm text-gray-600">
-                            Message: {request.message}
-                          </p>
-                        )}
-
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleRespondToRequest(request.id, "accepted")
-                            }
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleRespondToRequest(request.id, "declined")
-                            }
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Confirmed Interviews
-                </h2>
-
-                {acceptedRequests.length === 0 ? (
-                  <p className="text-gray-600">No confirmed interviews yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {acceptedRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="rounded-lg border border-gray-200 p-4"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {request.school?.full_name || "School"}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(request.status)}`}
-                          >
-                            {request.status}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mt-1">
-                          Slot: {formatDateTime(request.slot?.start_at)} -{" "}
-                          {formatDateTime(request.slot?.end_at)}
-                        </p>
-                        <CalendarActions
-                          calendarLinks={request.calendarLinks}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <p className="text-sm text-gray-700 mt-1">
+                        Slot: {formatDateTime(request.slot?.start_at)} -{" "}
+                        {formatDateTime(request.slot?.end_at)}
+                      </p>
+                      <CalendarActions calendarLinks={request.calendarLinks} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {isSchool && (
+        {isEmployer && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-5 h-fit space-y-4">
               <h2 className="text-lg font-semibold text-gray-900">
-                Request Interview Slot
+                Create Interview Request
               </h2>
 
               <div>
@@ -770,22 +513,112 @@ export default function SchedulePage() {
                 </select>
               </div>
 
-              {activeSchoolCandidate && (
+              {activeEmployerCandidate && (
                 <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
                   <p>
                     <span className="font-medium">Candidate:</span>{" "}
-                    {activeSchoolCandidate.candidateName}
+                    {activeEmployerCandidate.candidateName}
                   </p>
                   <p>
                     <span className="font-medium">Status:</span>{" "}
-                    {activeSchoolCandidate.status}
+                    {activeEmployerCandidate.status}
                   </p>
                   <p>
                     <span className="font-medium">Job:</span>{" "}
-                    {activeSchoolCandidate.jobTitle}
+                    {activeEmployerCandidate.jobTitle}
                   </p>
+                  <Link
+                    href={`/dashboard/messages?candidateId=${activeEmployerCandidate.candidateId}`}
+                    className="mt-3 inline-flex rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                  >
+                    Message Candidate
+                  </Link>
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Proposed Date
+                </label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, date: event.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.startTime}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        startTime: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.endTime}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        endTime: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Timezone
+                </label>
+                <input
+                  type="text"
+                  value={form.timezone}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      timezone: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Interview Notes (optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={form.notes}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      notes: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                  placeholder="Interview format, meeting link, or preparation notes"
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -799,52 +632,18 @@ export default function SchedulePage() {
                   placeholder="Add details like interview format or preferred discussion points"
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={handleRequestInterview}
+                disabled={!selectedApplicationId}
+                className="w-full rounded-lg bg-[#FF1E00] px-4 py-2.5 text-white font-medium hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send Interview Request
+              </button>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Available Slots
-                </h2>
-
-                {candidateSlots.length === 0 ? (
-                  <p className="text-gray-600">
-                    No open availability from this candidate yet.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {candidateSlots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="rounded-lg border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {formatDateTime(slot.start_at)} -{" "}
-                            {new Date(slot.end_at).toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {slot.timezone}
-                            {slot.notes ? ` | ${slot.notes}` : ""}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRequestSlot(slot.id)}
-                          disabled={!selectedApplicationId}
-                          className="rounded-lg bg-[#FF1E00] px-4 py-2 text-sm font-medium text-white hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Request Slot
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Sent Requests

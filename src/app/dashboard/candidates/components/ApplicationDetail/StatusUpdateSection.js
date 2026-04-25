@@ -2,6 +2,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+
+const EMPLOYER_ROLES = ["school", "family", "ngo"];
 
 const STATUS_OPTIONS = {
   pending: ["reviewed", "rejected"],
@@ -15,7 +19,7 @@ const STATUS_OPTIONS = {
 const STATUS_LABELS = {
   reviewed: "Mark as Reviewed",
   shortlisted: "Shortlist Candidate",
-  interviewing: "Schedule Interview",
+  interviewing: "Move to Interview Stage",
   hired: "Hire Candidate",
   rejected: "Reject Application",
 };
@@ -45,6 +49,13 @@ export default function StatusUpdateSection({
   onUpdateStatus,
 }) {
   const [selectedStatus, setSelectedStatus] = useState(null);
+  const { profile } = useAuth();
+
+  const employerRole = (profile?.role || "").toLowerCase();
+  const canUseInterviewScheduling = EMPLOYER_ROLES.includes(employerRole);
+  const canOpenScheduling = ["shortlisted", "interviewing"].includes(
+    application.status,
+  );
 
   const handleStatusUpdate = async (status) => {
     let shouldProceed = true;
@@ -66,8 +77,12 @@ export default function StatusUpdateSection({
     setSelectedStatus(null);
 
     if (result.success) {
-      // Show success message
-      alert(`Status updated to ${status}! The applicant has been notified.`);
+      const successMessage =
+        status === "interviewing" && canUseInterviewScheduling
+          ? "Application moved to interviewing. Open Interview Scheduling to request a slot."
+          : `Status updated to ${status}! The applicant has been notified.`;
+
+      alert(successMessage);
     }
   };
 
@@ -148,6 +163,47 @@ export default function StatusUpdateSection({
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p className="text-sm font-medium text-gray-800">
+          Interview Scheduling
+        </p>
+        {canUseInterviewScheduling ? (
+          canOpenScheduling ? (
+            <>
+              <p className="mt-1 text-sm text-gray-600">
+                Send an interview request from the scheduling workspace and let
+                the candidate accept or decline it there.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={`/dashboard/schedule?applicationId=${application.id}`}
+                  className="inline-flex rounded-lg bg-[#FF1E00] px-4 py-2 text-sm font-medium text-white hover:bg-[#E01B00]"
+                >
+                  Open Interview Scheduling
+                </Link>
+                <Link
+                  href={`/dashboard/messages?candidateId=${application.applicant.id}`}
+                  className="inline-flex rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  Message Candidate
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600">
+              Shortlist this candidate first, then use Interview Scheduling to
+              request an interview slot.
+            </p>
+          )
+        ) : (
+          <p className="mt-1 text-sm text-gray-600">
+            Interview Scheduling is currently available for employer accounts.
+            Move the application to shortlisted or interviewing, then request a
+            slot from the scheduling workspace.
+          </p>
+        )}
+      </div>
 
       {/* Status Flow Info */}
       <div className="mt-6 pt-6 border-t border-gray-200">
