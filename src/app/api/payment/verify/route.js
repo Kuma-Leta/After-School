@@ -1,9 +1,10 @@
 // app/api/chapa/callback/route.js
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request) {
   try {
+    const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const tx_ref = searchParams.get("tx_ref");
 

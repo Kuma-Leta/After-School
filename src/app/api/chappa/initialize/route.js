@@ -1,9 +1,10 @@
 // app/api/chapa/initiate/route.js
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
+    const supabase = await createClient();
     const body = await request.json();
     const { amount, currency } = body;
 
