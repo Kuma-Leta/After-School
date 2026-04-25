@@ -15,7 +15,8 @@ export async function PATCH(request, { params }) {
       return actorContext.response;
     }
 
-    const applicationId = params?.applicationId;
+    const resolvedParams = await params;
+    const applicationId = resolvedParams?.applicationId;
     if (!applicationId) {
       return NextResponse.json(
         { error: "applicationId is required" },
