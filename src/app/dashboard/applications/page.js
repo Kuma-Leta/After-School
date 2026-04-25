@@ -359,6 +359,12 @@ export default function ApplicationsPage() {
           <div className="divide-y divide-gray-200">
             {applications.map((app) => {
               const isOpen = !!expanded[app.id];
+              const resumeUrl =
+                app.resume_url ||
+                app.resumeUrl ||
+                app.applicant_profile?.resume_url ||
+                app.applicant_profile?.resumeUrl ||
+                null;
 
               return (
                 <div key={app.id} className="p-6 hover:bg-gray-50">
@@ -497,15 +503,15 @@ export default function ApplicationsPage() {
                             </div>
                           )}
 
-                          {app.resume_url && (
+                          {resumeUrl && (
                             <div>
                               <a
-                                href={app.resume_url}
+                                href={resumeUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm text-[#FF1E00] hover:text-[#E01B00] font-medium"
+                                className="inline-flex items-center rounded-md border border-[#FF1E00]/25 bg-[#FF1E00]/5 px-3 py-1.5 text-sm font-medium text-[#FF1E00] hover:bg-[#FF1E00]/10"
                               >
-                                View Resume
+                                View CV / Resume
                               </a>
                             </div>
                           )}

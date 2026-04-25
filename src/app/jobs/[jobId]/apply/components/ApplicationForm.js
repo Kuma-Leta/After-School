@@ -7,9 +7,18 @@ import UpgradePromptNotice from "@/components/payment/UpgradePromptNotice";
 export default function ApplicationForm({ job, profile }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
+  const [resumeFile, setResumeFile] = useState(null);
+
+  const MAX_RESUME_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_RESUME_TYPES = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ];
 
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || "",
@@ -24,6 +33,46 @@ export default function ApplicationForm({ job, profile }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleResumeChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setResumeFile(null);
+      return;
+    }
+
+    if (!ALLOWED_RESUME_TYPES.includes(file.type)) {
+      setError("Please upload a valid resume file (PDF, DOC, or DOCX).");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_RESUME_SIZE) {
+      setError("Resume file size must be less than 5MB.");
+      e.target.value = "";
+      return;
+    }
+
+    setError("");
+    setResumeFile(file);
+  };
+
+  const uploadResume = async (file) => {
+    const uploadFormData = new FormData();
+    uploadFormData.append("file", file);
+
+    const response = await fetch("/api/applications/upload-resume", {
+      method: "POST",
+      body: uploadFormData,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || "Failed to upload resume.");
+    }
+
+    return payload?.resumeUrl || "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -31,6 +80,12 @@ export default function ApplicationForm({ job, profile }) {
     setSuccess("");
 
     try {
+      let resolvedResumeUrl = formData.resume_url || "";
+      if (resumeFile) {
+        setUploadingResume(true);
+        resolvedResumeUrl = await uploadResume(resumeFile);
+      }
+
       const response = await fetch("/api/applications", {
         method: "POST",
         headers: {
@@ -39,7 +94,7 @@ export default function ApplicationForm({ job, profile }) {
         body: JSON.stringify({
           jobId: job.id,
           coverLetter: formData.cover_letter,
-          resumeUrl: formData.resume_url,
+          resumeUrl: resolvedResumeUrl,
         }),
       });
 
@@ -63,6 +118,7 @@ export default function ApplicationForm({ job, profile }) {
         error.message || "Failed to submit application. Please try again.",
       );
     } finally {
+      setUploadingResume(false);
       setSubmitting(false);
     }
   };
@@ -160,20 +216,24 @@ export default function ApplicationForm({ job, profile }) {
           />
         </div>
 
-        {/* We'll add file upload later */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Resume (Optional)
+            CV / Resume (Optional)
           </label>
           <p className="text-sm text-gray-500 mb-3">
-            Your profile information will be used for the application. You can
-            also upload a resume if you wish.
+            Upload a PDF or Word document to include in your application.
           </p>
           <input
             type="file"
             accept=".pdf,.doc,.docx"
+            onChange={handleResumeChange}
             className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FF1E00] file:text-white hover:file:bg-[#E01B00]"
           />
+          {resumeFile && (
+            <p className="mt-2 text-sm text-green-700">
+              Selected: {resumeFile.name}
+            </p>
+          )}
         </div>
 
         <div className="flex justify-between items-center pt-6 border-t border-gray-200">
@@ -186,10 +246,10 @@ export default function ApplicationForm({ job, profile }) {
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || uploadingResume}
             className="px-8 py-3 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center"
           >
-            {submitting ? (
+            {submitting || uploadingResume ? (
               <>
                 <svg
                   className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -210,7 +270,7 @@ export default function ApplicationForm({ job, profile }) {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Submitting...
+                {uploadingResume ? "Uploading CV..." : "Submitting..."}
               </>
             ) : (
               "Submit Application"

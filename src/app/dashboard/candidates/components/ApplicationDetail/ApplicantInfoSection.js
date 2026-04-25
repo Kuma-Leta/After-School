@@ -49,6 +49,7 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
   const age = applicant.dateOfBirth
     ? calculateAge(applicant.dateOfBirth)
     : null;
+  const resumeUrl = application.resumeUrl || application.resume_url || null;
   const ratingSummary = applicant?.ratingSummary || {
     averageScore: 0,
     reviewCount: 0,
@@ -215,28 +216,34 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
       )}
 
       {/* Resume */}
-      {application.resumeUrl && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Download className="h-5 w-5 mr-2 text-gray-400" />
-            Resume
-          </h4>
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Download className="h-5 w-5 mr-2 text-gray-400" />
+          CV / Resume
+        </h4>
 
-          <a
-            href={application.resumeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <FileText className="h-5 w-5 mr-2" />
-            Download Resume
-          </a>
+        {resumeUrl ? (
+          <>
+            <a
+              href={resumeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <FileText className="h-5 w-5 mr-2" />
+              View CV
+            </a>
 
-          <p className="text-sm text-gray-500 mt-2">
-            Click to view or download the applicant&apos;s resume
-          </p>
-        </div>
-      )}
+            <p className="text-sm text-gray-500 mt-2">
+              Opens the applicant&apos;s CV in a new tab.
+            </p>
+          </>
+        ) : (
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No CV was attached to this application.
+          </div>
+        )}
+      </div>
 
       {/* About */}
       {applicant.bio && (
