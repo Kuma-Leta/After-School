@@ -60,6 +60,9 @@ export default function ResetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({
         password: password,
+        data: {
+          force_password_reset: false,
+        },
       });
 
       if (error) throw error;

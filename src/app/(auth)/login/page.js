@@ -34,6 +34,29 @@ function LoginPageContent() {
     password: "",
   });
 
+  const forceResetOnFirstLogin = useCallback(
+    async (email) => {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
+      );
+
+      if (resetError) {
+        throw resetError;
+      }
+
+      await supabase.auth.signOut();
+      setError(
+        "Password reset required before first login. We sent a reset link to your email.",
+      );
+      setLoading(false);
+      return true;
+    },
+    [setError],
+  );
+
   const authCheckRef = useRef(false);
 
   const getSafeRedirectTarget = useCallback(() => {
@@ -88,13 +111,18 @@ function LoginPageContent() {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) {
+        if (session.user?.user_metadata?.force_password_reset) {
+          await forceResetOnFirstLogin(session.user.email);
+          setAuthChecked(true);
+          return;
+        }
         const redirectTo = await getRoleAwareRedirect(session.user.id);
         router.replace(redirectTo); // no refresh()
       }
       setAuthChecked(true);
     }
     checkAuth();
-  }, [router, getRoleAwareRedirect]);
+  }, [router, getRoleAwareRedirect, forceResetOnFirstLogin]);
 
   const handleChange = (e) => {
     setFormData({
@@ -122,6 +150,11 @@ function LoginPageContent() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Session not created");
+
+      if (session.user?.user_metadata?.force_password_reset) {
+        const handled = await forceResetOnFirstLogin(session.user.email);
+        if (handled) return;
+      }
 
       const redirectTo = await getRoleAwareRedirect(session.user.id);
       window.location.href = redirectTo; // hard navigation

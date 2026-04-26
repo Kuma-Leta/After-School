@@ -167,13 +167,15 @@ export async function createOrganizationOrFamilyByAdmin(
   const contactPerson = String(payload?.contact_person || fullName).trim();
   const address = String(payload?.address || "").trim();
   const website = String(payload?.website || "").trim();
+  const forcePasswordReset = Boolean(payload?.force_password_reset);
 
   if (!email) throw new Error("Email is required.");
   if (!password || password.length < 6) {
     throw new Error("Password must be at least 6 characters.");
   }
   if (!fullName) throw new Error("Full name is required.");
-  if (!organizationName) throw new Error("Organization or family name is required.");
+  if (!organizationName)
+    throw new Error("Organization or family name is required.");
   if (!contactPerson) throw new Error("Contact person is required.");
   if (!address) throw new Error("Address is required.");
 
@@ -196,7 +198,8 @@ export async function createOrganizationOrFamilyByAdmin(
       throw new Error("Registration or license number is required.");
     }
     if (!taxId) throw new Error("Tax ID / TIN is required.");
-    if (!officialEmail) throw new Error("Official institution email is required.");
+    if (!officialEmail)
+      throw new Error("Official institution email is required.");
     if (!authorizedRepresentativeName) {
       throw new Error("Authorized representative name is required.");
     }
@@ -205,9 +208,7 @@ export async function createOrganizationOrFamilyByAdmin(
     }
   }
 
-  const requestedVerificationStatus = String(
-    payload?.verification_status || "",
-  )
+  const requestedVerificationStatus = String(payload?.verification_status || "")
     .trim()
     .toLowerCase();
   const validVerificationStatuses = ["pending", "verified", "rejected"];
@@ -230,6 +231,7 @@ export async function createOrganizationOrFamilyByAdmin(
         full_name: fullName,
         role,
         phone,
+        force_password_reset: forcePasswordReset,
       },
       app_metadata: {
         provider: "email",
@@ -278,8 +280,7 @@ export async function createOrganizationOrFamilyByAdmin(
         role === "family" ? "Guardian" : authorizedRepresentativeRole,
       verification_status,
       verification_rejection_reason: null,
-      documents_submitted_at:
-        verificationStatus === "pending" ? nowIso : null,
+      documents_submitted_at: verificationStatus === "pending" ? nowIso : null,
       verified_at: verificationStatus === "verified" ? nowIso : null,
       verified_by: verificationStatus === "verified" ? adminUserId : null,
       updated_at: nowIso,
@@ -304,6 +305,7 @@ export async function createOrganizationOrFamilyByAdmin(
       organization_name: organizationName,
       org_type: orgType,
       verification_status: verificationStatus,
+      force_password_reset: forcePasswordReset,
       status: "active",
       created_at: createdAuthData.user.created_at || nowIso,
     };

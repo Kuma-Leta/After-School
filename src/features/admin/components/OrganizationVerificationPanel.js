@@ -11,6 +11,20 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
+function generateSecurePassword(length = 16) {
+  const charset =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*";
+  const randomValues = new Uint32Array(length);
+  crypto.getRandomValues(randomValues);
+
+  let result = "";
+  for (let index = 0; index < length; index += 1) {
+    result += charset[randomValues[index] % charset.length];
+  }
+
+  return result;
+}
+
 export default function OrganizationVerificationPanel() {
   const [status, setStatus] = useState("pending");
   const [items, setItems] = useState([]);
@@ -37,6 +51,7 @@ export default function OrganizationVerificationPanel() {
     authorized_representative_name: "",
     authorized_representative_role: "",
     verification_status: "verified",
+    force_password_reset: true,
   });
 
   const loadItems = async () => {
@@ -113,6 +128,7 @@ export default function OrganizationVerificationPanel() {
         official_email: "",
         authorized_representative_name: "",
         authorized_representative_role: "",
+        force_password_reset: true,
       }));
 
       setStatus("all");
@@ -121,6 +137,26 @@ export default function OrganizationVerificationPanel() {
       setError(createError.message || "Failed to create account.");
     } finally {
       setCreatingAccount(false);
+    }
+  };
+
+  const applyGeneratedPassword = async () => {
+    const password = generateSecurePassword();
+
+    setCreateForm((prev) => ({
+      ...prev,
+      password,
+    }));
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(password);
+        setSuccessMessage("Generated password copied to clipboard.");
+      } else {
+        setSuccessMessage("Generated password applied to the form.");
+      }
+    } catch {
+      setSuccessMessage("Generated password applied to the form.");
     }
   };
 
@@ -227,13 +263,22 @@ export default function OrganizationVerificationPanel() {
           </label>
           <label className="space-y-1 text-sm text-gray-700">
             <span>Initial Password</span>
-            <input
-              type="password"
-              name="password"
-              value={createForm.password}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="password"
+                value={createForm.password}
+                onChange={handleCreateInputChange}
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+              />
+              <button
+                type="button"
+                onClick={applyGeneratedPassword}
+                className="h-10 whitespace-nowrap rounded-lg border border-gray-300 bg-gray-100 px-3 text-xs font-semibold text-gray-800"
+              >
+                Generate
+              </button>
+            </div>
           </label>
           <label className="space-y-1 text-sm text-gray-700">
             <span>Phone</span>
@@ -281,6 +326,22 @@ export default function OrganizationVerificationPanel() {
             />
           </label>
         </div>
+
+        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            name="force_password_reset"
+            checked={Boolean(createForm.force_password_reset)}
+            onChange={(event) =>
+              setCreateForm((prev) => ({
+                ...prev,
+                force_password_reset: event.target.checked,
+              }))
+            }
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <span>Force password reset on first login</span>
+        </label>
 
         {(createForm.role === "school" || createForm.role === "ngo") && (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
