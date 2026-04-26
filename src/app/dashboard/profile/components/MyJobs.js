@@ -82,6 +82,11 @@ export default function MyJobs() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewerRole, setViewerRole] = useState(null);
+  const [organizationVerification, setOrganizationVerification] = useState({
+    status: "verified",
+    rejectionReason: "",
+  });
   const [showForm, setShowForm] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [formData, setFormData] = useState({
@@ -127,6 +132,47 @@ export default function MyJobs() {
     loadJobs();
   }, [loadJobs]);
 
+  useEffect(() => {
+    async function loadVerificationStatus() {
+      if (!user?.id) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const role = (profile?.role || "").toLowerCase();
+        setViewerRole(role || null);
+
+        if (role === "school" || role === "ngo") {
+          const { data: organization } = await supabase
+            .from("organizations")
+            .select("verification_status, verification_rejection_reason")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          setOrganizationVerification({
+            status: (organization?.verification_status || "pending").toLowerCase(),
+            rejectionReason: organization?.verification_rejection_reason || "",
+          });
+        } else {
+          setOrganizationVerification({ status: "verified", rejectionReason: "" });
+        }
+      } catch (error) {
+        console.error("Error loading organization verification status:", error);
+      }
+    }
+
+    loadVerificationStatus();
+  }, [user]);
+
+  const needsOrganizationVerification =
+    viewerRole === "school" || viewerRole === "ngo";
+  const canPostJobs =
+    !needsOrganizationVerification || organizationVerification.status === "verified";
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -164,6 +210,15 @@ export default function MyJobs() {
     try {
       if (!user?.id) {
         alert("You must be logged in to post a job.");
+        return;
+      }
+
+      if (!canPostJobs) {
+        const statusMessage =
+          organizationVerification.status === "rejected"
+            ? "Your organization verification was rejected. Update verification details in your profile and contact support."
+            : "Your organization account is pending verification. Job posting is unlocked after approval.";
+        alert(statusMessage);
         return;
       }
 
@@ -355,11 +410,32 @@ export default function MyJobs() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] font-medium"
+          disabled={!canPostJobs}
+          className={`px-4 py-2 rounded-lg font-medium ${
+            canPostJobs
+              ? "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
+              : "bg-gray-300 text-gray-600 cursor-not-allowed"
+          }`}
         >
-          + Post New Job
+          {canPostJobs ? "+ Post New Job" : "Verification Required"}
         </button>
       </div>
+
+      {!canPostJobs && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+          <p className="text-sm font-semibold">Organization verification required</p>
+          <p className="text-sm mt-1">
+            {organizationVerification.status === "rejected"
+              ? "Your verification request was rejected. Please update your legal registration details in your profile and contact support for re-review."
+              : "Your verification request is pending admin review. Job posting will be enabled once approved."}
+          </p>
+          {organizationVerification.rejectionReason && (
+            <p className="text-sm mt-1">
+              Review note: {organizationVerification.rejectionReason}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Job Posting Form */}
       {showForm && (

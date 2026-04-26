@@ -57,7 +57,28 @@ export default function RegisterPage() {
     full_name: "",
     phone: "",
     role: "",
+    legal_name: "",
+    registration_number: "",
+    tax_id: "",
+    official_email: "",
+    organization_website: "",
+    organization_address: "",
+    authorized_representative_name: "",
+    authorized_representative_role: "",
   });
+
+  const isOrganizationVerificationRequired =
+    selectedRole === "school" || selectedRole === "ngo";
+  const disallowedOfficialEmailDomains = [
+    "gmail.com",
+    "yahoo.com",
+    "hotmail.com",
+    "outlook.com",
+    "icloud.com",
+    "aol.com",
+    "proton.me",
+    "protonmail.com",
+  ];
 
   const handleRoleSelect = (roleId) => {
     setSelectedRole(roleId);
@@ -103,6 +124,12 @@ export default function RegisterPage() {
     return password.length >= 6;
   };
 
+  const getEmailDomain = (email) => {
+    const atIndex = email.lastIndexOf("@");
+    if (atIndex === -1) return "";
+    return email.slice(atIndex + 1).toLowerCase().trim();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -127,6 +154,45 @@ export default function RegisterPage() {
 
     if (!validatePassword(formData.password)) {
       newErrors.password = "Password must be at least 6 characters";
+    }
+
+    if (isOrganizationVerificationRequired) {
+      if (!formData.legal_name.trim()) {
+        newErrors.legal_name = "Legal institution name is required";
+      }
+
+      if (!formData.registration_number.trim()) {
+        newErrors.registration_number =
+          "Registration or license number is required";
+      }
+
+      if (!formData.tax_id.trim()) {
+        newErrors.tax_id = "Tax ID / TIN is required";
+      }
+
+      if (!validateEmail(formData.official_email)) {
+        newErrors.official_email = "Please enter a valid official institution email";
+      } else {
+        const officialDomain = getEmailDomain(formData.official_email);
+        if (disallowedOfficialEmailDomains.includes(officialDomain)) {
+          newErrors.official_email =
+            "Use an official institution email (not a personal inbox provider).";
+        }
+      }
+
+      if (!formData.organization_address.trim()) {
+        newErrors.organization_address = "Institution address is required";
+      }
+
+      if (!formData.authorized_representative_name.trim()) {
+        newErrors.authorized_representative_name =
+          "Authorized representative name is required";
+      }
+
+      if (!formData.authorized_representative_role.trim()) {
+        newErrors.authorized_representative_role =
+          "Authorized representative role is required";
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -204,12 +270,54 @@ export default function RegisterPage() {
             ]);
           } else if (["school", "ngo", "family"].includes(role)) {
             const orgType = role === "family" ? "individual" : role;
+            const isVerifiedOrgRole = role === "school" || role === "ngo";
             await supabase.from("organizations").insert([
               {
                 id: authData.user.id,
-                org_name: formData.full_name,
+                org_name:
+                  role === "school" || role === "ngo"
+                    ? formData.legal_name.trim()
+                    : formData.full_name,
                 org_type: orgType,
-                contact_person: formData.full_name,
+                contact_person:
+                  formData.authorized_representative_name.trim() ||
+                  formData.full_name,
+                legal_name:
+                  role === "school" || role === "ngo"
+                    ? formData.legal_name.trim()
+                    : null,
+                registration_number:
+                  role === "school" || role === "ngo"
+                    ? formData.registration_number.trim()
+                    : null,
+                tax_id:
+                  role === "school" || role === "ngo"
+                    ? formData.tax_id.trim()
+                    : null,
+                official_email:
+                  role === "school" || role === "ngo"
+                    ? formData.official_email.trim().toLowerCase()
+                    : null,
+                website:
+                  role === "school" || role === "ngo"
+                    ? formData.organization_website.trim() || null
+                    : null,
+                address:
+                  role === "school" || role === "ngo"
+                    ? formData.organization_address.trim()
+                    : null,
+                authorized_representative_name:
+                  role === "school" || role === "ngo"
+                    ? formData.authorized_representative_name.trim()
+                    : null,
+                authorized_representative_role:
+                  role === "school" || role === "ngo"
+                    ? formData.authorized_representative_role.trim()
+                    : null,
+                verification_status: isVerifiedOrgRole ? "pending" : "verified",
+                documents_submitted_at: isVerifiedOrgRole
+                  ? new Date().toISOString()
+                  : null,
               },
             ]);
           }
@@ -292,6 +400,15 @@ export default function RegisterPage() {
                 Please check your inbox (and spam folder) and click the
                 confirmation link to verify your account.
               </p>
+              {(selectedRole === "school" || selectedRole === "ngo") && (
+                <div className="bg-amber-50 p-4 rounded-md">
+                  <p className="text-amber-800 text-sm">
+                    Your organization account is now marked as pending
+                    verification. You can sign in after email confirmation, but
+                    job posting is unlocked only after admin approval.
+                  </p>
+                </div>
+              )}
               <div className="bg-blue-50 p-4 rounded-md">
                 <p className="text-blue-700 text-sm">
                   ✉️ <strong>Important:</strong> You must confirm your email
@@ -598,6 +715,203 @@ export default function RegisterPage() {
                   Must be at least 6 characters
                 </p>
               </div>
+
+              {isOrganizationVerificationRequired && (
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#1F1F1F]">
+                      Organization Verification Details
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1">
+                      These details are used to reduce fake organizations and
+                      protect candidates.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Legal Institution Name *
+                    </label>
+                    <input
+                      name="legal_name"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.legal_name}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.legal_name ? "border-red-300" : "border-gray-300"
+                      }`}
+                      placeholder="Registered legal institution name"
+                    />
+                    {errors.legal_name && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.legal_name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Registration / License Number *
+                    </label>
+                    <input
+                      name="registration_number"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.registration_number}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.registration_number
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="License or registration number"
+                    />
+                    {errors.registration_number && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.registration_number}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tax ID / TIN *
+                    </label>
+                    <input
+                      name="tax_id"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.tax_id}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.tax_id ? "border-red-300" : "border-gray-300"
+                      }`}
+                      placeholder="Tax Identification Number"
+                    />
+                    {errors.tax_id && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.tax_id}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Official Institution Email *
+                    </label>
+                    <input
+                      name="official_email"
+                      type="email"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.official_email}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.official_email
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="hr@institution.org"
+                    />
+                    {errors.official_email ? (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.official_email}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Personal inboxes like gmail.com are not allowed for this
+                        field.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Institution Website
+                    </label>
+                    <input
+                      name="organization_website"
+                      type="url"
+                      value={formData.organization_website}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] border-gray-300"
+                      placeholder="https://example.edu.et"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Institution Address *
+                    </label>
+                    <input
+                      name="organization_address"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.organization_address}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.organization_address
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Region, city, sub-city"
+                    />
+                    {errors.organization_address && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.organization_address}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Authorized Representative Name *
+                    </label>
+                    <input
+                      name="authorized_representative_name"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.authorized_representative_name}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.authorized_representative_name
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Name of person authorized to hire"
+                    />
+                    {errors.authorized_representative_name && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.authorized_representative_name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Authorized Representative Role *
+                    </label>
+                    <input
+                      name="authorized_representative_role"
+                      type="text"
+                      required={isOrganizationVerificationRequired}
+                      value={formData.authorized_representative_role}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF1E00]/50 focus:border-[#FF1E00] ${
+                        errors.authorized_representative_role
+                          ? "border-red-300"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Principal, HR Manager, Program Director"
+                    />
+                    {errors.authorized_representative_role && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.authorized_representative_role}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-8">
