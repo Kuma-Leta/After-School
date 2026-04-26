@@ -7,6 +7,22 @@ function getSafeRedirectTarget(request) {
   return redirect;
 }
 
+async function getRoleAwareHome(supabase, userId) {
+  if (!userId) return "/jobs";
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return profile?.role?.toLowerCase() === "admin" ? "/admin" : "/jobs";
+  } catch {
+    return "/jobs";
+  }
+}
+
 export async function middleware(request) {
   let response = NextResponse.next();
   const supabase = createServerClient(
@@ -63,7 +79,9 @@ export async function middleware(request) {
         path,
       )
     ) {
-      const target = getSafeRedirectTarget(request) || "/dashboard";
+      const target =
+        getSafeRedirectTarget(request) ||
+        (await getRoleAwareHome(supabase, user.id));
       return NextResponse.redirect(new URL(target, request.url));
     }
     return response;

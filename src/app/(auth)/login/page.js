@@ -49,7 +49,7 @@ function LoginPageContent() {
       const requestedRedirect = getSafeRedirectTarget();
       if (requestedRedirect) return requestedRedirect;
 
-      if (!userId) return "/dashboard";
+      if (!userId) return "/jobs";
 
       // Retry once in case of temporary failure
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -61,21 +61,19 @@ function LoginPageContent() {
             .maybeSingle();
 
           if (!error && profile) {
-            return profile.role?.toLowerCase() === "admin"
-              ? "/admin"
-              : "/dashboard";
+            return profile.role?.toLowerCase() === "admin" ? "/admin" : "/jobs";
           }
           if (attempt === 1)
             await new Promise((resolve) => setTimeout(resolve, 300));
         } catch (err) {
           console.error(`Profile fetch attempt ${attempt} failed`, err);
           if (attempt === 2) {
-            // Last resort – go to dashboard but without triggering loop
-            return "/dashboard?error=profile_unavailable";
+            // Last resort – send non-admin users to jobs page
+            return "/jobs?error=profile_unavailable";
           }
         }
       }
-      return "/dashboard";
+      return "/jobs";
     },
     [getSafeRedirectTarget],
   );

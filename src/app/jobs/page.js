@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
+import Link from "next/link";
 import JobFilters from "./components/JobFilters";
 import JobCard from "./components/JobCard";
 import JobDetailModal from "./components/JobDetailModal";
@@ -421,6 +422,15 @@ export default function HomePage() {
         <div className="absolute -bottom-20 -right-10 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <div className="flex justify-end mb-6">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/60"
+            >
+              Go to Dashboard
+            </Link>
+          </div>
+
           <div className="text-center mb-8 md:mb-10">
             <p className="inline-flex items-center rounded-full bg-white/10 border border-white/20 px-4 py-1.5 text-sm font-medium tracking-wide mb-5">
               Curated opportunities across Ethiopia
