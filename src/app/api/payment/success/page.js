@@ -1,12 +1,30 @@
 // app/payment/success/page.js
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 export default function PaymentSuccess() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="bg-white p-8 rounded-xl shadow-lg max-w-md text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF1E00] mx-auto mb-4"></div>
+            <h2 className="text-2xl font-semibold mb-2">Verifying Payment</h2>
+            <p className="text-gray-600">Loading payment details...</p>
+          </div>
+        </div>
+      }
+    >
+      <PaymentSuccessContent />
+    </Suspense>
+  );
+}
+
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const tx_ref = searchParams.get("tx_ref");
   const [status, setStatus] = useState("verifying");
