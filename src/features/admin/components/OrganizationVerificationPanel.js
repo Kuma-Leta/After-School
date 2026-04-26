@@ -228,8 +228,8 @@ export default function OrganizationVerificationPanel() {
                 Create Organization Or Family Account
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Open the form only when you want to create a new school, NGO,
-                or family account.
+                Open the form only when you want to create a new school, NGO, or
+                family account.
               </p>
             </div>
 
@@ -252,8 +252,8 @@ export default function OrganizationVerificationPanel() {
                 Create Organization Or Family Account
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Admin can onboard school, NGO, and family accounts directly
-                with all required details.
+                Admin can onboard school, NGO, and family accounts directly with
+                all required details.
               </p>
             </div>
 
