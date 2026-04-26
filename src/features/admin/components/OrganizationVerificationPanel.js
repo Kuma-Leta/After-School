@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const statusOptions = ["pending", "verified", "rejected", "all"];
 
@@ -31,6 +31,7 @@ export default function OrganizationVerificationPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [busyOrgId, setBusyOrgId] = useState("");
   const [rejectionNotes, setRejectionNotes] = useState({});
@@ -54,7 +55,7 @@ export default function OrganizationVerificationPanel() {
     force_password_reset: true,
   });
 
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -78,11 +79,11 @@ export default function OrganizationVerificationPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
   useEffect(() => {
     loadItems();
-  }, [status]);
+  }, [loadItems]);
 
   const handleCreateInputChange = (event) => {
     const { name, value } = event.target;
@@ -130,6 +131,8 @@ export default function OrganizationVerificationPanel() {
         authorized_representative_role: "",
         force_password_reset: true,
       }));
+
+      setShowCreateForm(false);
 
       setStatus("all");
       loadItems();
@@ -218,217 +221,255 @@ export default function OrganizationVerificationPanel() {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            Create Organization Or Family Account
-          </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Admin can onboard school, NGO, and family accounts directly with all
-            required details.
-          </p>
-        </div>
+        {!showCreateForm ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Create Organization Or Family Account
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Open the form only when you want to create a new school, NGO,
+                or family account.
+              </p>
+            </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Role</span>
-            <select
-              name="role"
-              value={createForm.role}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm(true);
+                setError("");
+                setSuccessMessage("");
+              }}
+              className="rounded-lg bg-[#1F1F1F] px-4 py-2 text-sm font-semibold text-white hover:bg-black"
             >
-              <option value="school">School</option>
-              <option value="ngo">NGO</option>
-              <option value="family">Family</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Primary Contact Full Name</span>
-            <input
-              name="full_name"
-              value={createForm.full_name}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Email</span>
-            <input
-              type="email"
-              name="email"
-              value={createForm.email}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Initial Password</span>
-            <div className="flex gap-2">
+              Create Account
+            </button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Create Organization Or Family Account
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Admin can onboard school, NGO, and family accounts directly
+                with all required details.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Role</span>
+                <select
+                  name="role"
+                  value={createForm.role}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                >
+                  <option value="school">School</option>
+                  <option value="ngo">NGO</option>
+                  <option value="family">Family</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Primary Contact Full Name</span>
+                <input
+                  name="full_name"
+                  value={createForm.full_name}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Email</span>
+                <input
+                  type="email"
+                  name="email"
+                  value={createForm.email}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Initial Password</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="password"
+                    value={createForm.password}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyGeneratedPassword}
+                    className="h-10 whitespace-nowrap rounded-lg border border-gray-300 bg-gray-100 px-3 text-xs font-semibold text-gray-800"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Phone</span>
+                <input
+                  name="phone"
+                  value={createForm.phone}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Organization/Family Name</span>
+                <input
+                  name="organization_name"
+                  value={createForm.organization_name}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700 md:col-span-2">
+                <span>Address</span>
+                <input
+                  name="address"
+                  value={createForm.address}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Website (optional)</span>
+                <input
+                  name="website"
+                  value={createForm.website}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-gray-700">
+                <span>Contact Person</span>
+                <input
+                  name="contact_person"
+                  value={createForm.contact_person}
+                  onChange={handleCreateInputChange}
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                />
+              </label>
+            </div>
+
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
-                type="text"
-                name="password"
-                value={createForm.password}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                type="checkbox"
+                name="force_password_reset"
+                checked={Boolean(createForm.force_password_reset)}
+                onChange={(event) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    force_password_reset: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-gray-300"
               />
+              <span>Force password reset on first login</span>
+            </label>
+
+            {(createForm.role === "school" || createForm.role === "ngo") && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <label className="space-y-1 text-sm text-gray-700 md:col-span-3">
+                  <span>Legal Institution Name</span>
+                  <input
+                    name="legal_name"
+                    value={createForm.legal_name}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Registration/License Number</span>
+                  <input
+                    name="registration_number"
+                    value={createForm.registration_number}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Tax ID / TIN</span>
+                  <input
+                    name="tax_id"
+                    value={createForm.tax_id}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Official Institution Email</span>
+                  <input
+                    name="official_email"
+                    value={createForm.official_email}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Authorized Representative Name</span>
+                  <input
+                    name="authorized_representative_name"
+                    value={createForm.authorized_representative_name}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Authorized Representative Role</span>
+                  <input
+                    name="authorized_representative_role"
+                    value={createForm.authorized_representative_role}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-gray-700">
+                  <span>Initial Verification Status</span>
+                  <select
+                    name="verification_status"
+                    value={createForm.verification_status}
+                    onChange={handleCreateInputChange}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                  >
+                    <option value="verified">Verified</option>
+                    <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </label>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={applyGeneratedPassword}
-                className="h-10 whitespace-nowrap rounded-lg border border-gray-300 bg-gray-100 px-3 text-xs font-semibold text-gray-800"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setError("");
+                }}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
               >
-                Generate
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createOrganizationAccount}
+                disabled={creatingAccount}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                  creatingAccount
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#1F1F1F] hover:bg-black"
+                }`}
+              >
+                {creatingAccount ? "Creating..." : "Create Account"}
               </button>
             </div>
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Phone</span>
-            <input
-              name="phone"
-              value={createForm.phone}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Organization/Family Name</span>
-            <input
-              name="organization_name"
-              value={createForm.organization_name}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700 md:col-span-2">
-            <span>Address</span>
-            <input
-              name="address"
-              value={createForm.address}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Website (optional)</span>
-            <input
-              name="website"
-              value={createForm.website}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-          <label className="space-y-1 text-sm text-gray-700">
-            <span>Contact Person</span>
-            <input
-              name="contact_person"
-              value={createForm.contact_person}
-              onChange={handleCreateInputChange}
-              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-            />
-          </label>
-        </div>
-
-        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            name="force_password_reset"
-            checked={Boolean(createForm.force_password_reset)}
-            onChange={(event) =>
-              setCreateForm((prev) => ({
-                ...prev,
-                force_password_reset: event.target.checked,
-              }))
-            }
-            className="h-4 w-4 rounded border-gray-300"
-          />
-          <span>Force password reset on first login</span>
-        </label>
-
-        {(createForm.role === "school" || createForm.role === "ngo") && (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <label className="space-y-1 text-sm text-gray-700 md:col-span-3">
-              <span>Legal Institution Name</span>
-              <input
-                name="legal_name"
-                value={createForm.legal_name}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Registration/License Number</span>
-              <input
-                name="registration_number"
-                value={createForm.registration_number}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Tax ID / TIN</span>
-              <input
-                name="tax_id"
-                value={createForm.tax_id}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Official Institution Email</span>
-              <input
-                name="official_email"
-                value={createForm.official_email}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Authorized Representative Name</span>
-              <input
-                name="authorized_representative_name"
-                value={createForm.authorized_representative_name}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Authorized Representative Role</span>
-              <input
-                name="authorized_representative_role"
-                value={createForm.authorized_representative_role}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-gray-700">
-              <span>Initial Verification Status</span>
-              <select
-                name="verification_status"
-                value={createForm.verification_status}
-                onChange={handleCreateInputChange}
-                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-              >
-                <option value="verified">Verified</option>
-                <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </label>
-          </div>
+          </>
         )}
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={createOrganizationAccount}
-            disabled={creatingAccount}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-              creatingAccount
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#1F1F1F] hover:bg-black"
-            }`}
-          >
-            {creatingAccount ? "Creating..." : "Create Account"}
-          </button>
-        </div>
       </section>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
