@@ -87,6 +87,12 @@ export default function MyJobs() {
     status: "verified",
     rejectionReason: "",
   });
+  const [verificationDocs, setVerificationDocs] = useState([]);
+  const [verificationDocType, setVerificationDocType] = useState("license");
+  const [verificationFile, setVerificationFile] = useState(null);
+  const [uploadingVerificationDoc, setUploadingVerificationDoc] =
+    useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [formData, setFormData] = useState({
@@ -154,11 +160,16 @@ export default function MyJobs() {
             .maybeSingle();
 
           setOrganizationVerification({
-            status: (organization?.verification_status || "pending").toLowerCase(),
+            status: (
+              organization?.verification_status || "pending"
+            ).toLowerCase(),
             rejectionReason: organization?.verification_rejection_reason || "",
           });
         } else {
-          setOrganizationVerification({ status: "verified", rejectionReason: "" });
+          setOrganizationVerification({
+            status: "verified",
+            rejectionReason: "",
+          });
         }
       } catch (error) {
         console.error("Error loading organization verification status:", error);
@@ -168,10 +179,41 @@ export default function MyJobs() {
     loadVerificationStatus();
   }, [user]);
 
+  const loadVerificationDocuments = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch(
+        "/api/organizations/verification-documents",
+        {
+          method: "GET",
+          credentials: "include",
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to load verification documents.",
+        );
+      }
+
+      setVerificationDocs(result.items || []);
+    } catch (error) {
+      console.error("Error loading verification documents:", error);
+    }
+  }, [user]);
+
   const needsOrganizationVerification =
     viewerRole === "school" || viewerRole === "ngo";
   const canPostJobs =
-    !needsOrganizationVerification || organizationVerification.status === "verified";
+    !needsOrganizationVerification ||
+    organizationVerification.status === "verified";
+
+  useEffect(() => {
+    if (!needsOrganizationVerification) return;
+    loadVerificationDocuments();
+  }, [needsOrganizationVerification, loadVerificationDocuments]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -201,6 +243,50 @@ export default function MyJobs() {
       setFormData({ ...formData, [name]: parseInt(value) || 0 });
     } else {
       setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  const handleVerificationDocUpload = async () => {
+    try {
+      if (!verificationFile) {
+        setVerificationMessage("Please choose a file before uploading.");
+        return;
+      }
+
+      setUploadingVerificationDoc(true);
+      setVerificationMessage("");
+
+      const form = new FormData();
+      form.append("documentType", verificationDocType);
+      form.append("file", verificationFile);
+
+      const response = await fetch(
+        "/api/organizations/verification-documents",
+        {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to upload verification document.",
+        );
+      }
+
+      setVerificationFile(null);
+      setVerificationMessage(
+        "Document uploaded successfully. Your verification review will include this file.",
+      );
+      await loadVerificationDocuments();
+    } catch (error) {
+      setVerificationMessage(
+        error?.message || "Failed to upload verification document.",
+      );
+    } finally {
+      setUploadingVerificationDoc(false);
     }
   };
 
@@ -422,8 +508,10 @@ export default function MyJobs() {
       </div>
 
       {!canPostJobs && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-          <p className="text-sm font-semibold">Organization verification required</p>
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 space-y-4">
+          <p className="text-sm font-semibold">
+            Organization verification required
+          </p>
           <p className="text-sm mt-1">
             {organizationVerification.status === "rejected"
               ? "Your verification request was rejected. Please update your legal registration details in your profile and contact support for re-review."
@@ -434,6 +522,93 @@ export default function MyJobs() {
               Review note: {organizationVerification.rejectionReason}
             </p>
           )}
+
+          <div className="rounded-lg border border-amber-200 bg-white px-4 py-3">
+            <p className="text-sm font-semibold text-amber-900">
+              Upload supporting documents (optional)
+            </p>
+            <p className="text-xs text-amber-800 mt-1">
+              Accepted file types: PDF, JPG, PNG, WebP (max 10MB each).
+            </p>
+
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-[180px_1fr_auto] gap-2">
+              <select
+                value={verificationDocType}
+                onChange={(event) => setVerificationDocType(event.target.value)}
+                className="rounded-lg border border-amber-300 px-2 py-2 text-sm text-amber-900"
+              >
+                <option value="license">License</option>
+                <option value="certificate">Certificate</option>
+                <option value="authorization_letter">
+                  Authorization Letter
+                </option>
+                <option value="other">Other</option>
+              </select>
+
+              <input
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp"
+                onChange={(event) =>
+                  setVerificationFile(event.target.files?.[0] || null)
+                }
+                className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm"
+              />
+
+              <button
+                type="button"
+                onClick={handleVerificationDocUpload}
+                disabled={uploadingVerificationDoc}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold text-white ${
+                  uploadingVerificationDoc
+                    ? "bg-amber-300 cursor-not-allowed"
+                    : "bg-amber-700 hover:bg-amber-800"
+                }`}
+              >
+                {uploadingVerificationDoc ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+
+            {verificationMessage && (
+              <p className="mt-2 text-xs text-amber-900">
+                {verificationMessage}
+              </p>
+            )}
+
+            {verificationDocs.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+                  Uploaded verification files
+                </p>
+                {verificationDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5"
+                  >
+                    <div>
+                      <p className="text-sm text-amber-900">
+                        {(doc.document_type || "other").replace("_", " ")}
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        {doc.original_file_name || "Unnamed file"}
+                      </p>
+                    </div>
+                    {doc.signed_url ? (
+                      <a
+                        href={doc.signed_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold underline text-amber-900"
+                      >
+                        Open
+                      </a>
+                    ) : (
+                      <span className="text-xs text-amber-700">Processing</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

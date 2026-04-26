@@ -68,6 +68,12 @@ export default async function AdminLayout({ children }) {
               Subscriptions
             </Link>
             <Link
+              href="/admin/organizations"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+            >
+              Organizations
+            </Link>
+            <Link
               href="/admin/settings"
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700"
             >

@@ -127,7 +127,10 @@ export default function RegisterPage() {
   const getEmailDomain = (email) => {
     const atIndex = email.lastIndexOf("@");
     if (atIndex === -1) return "";
-    return email.slice(atIndex + 1).toLowerCase().trim();
+    return email
+      .slice(atIndex + 1)
+      .toLowerCase()
+      .trim();
   };
 
   const handleSubmit = async (e) => {
@@ -171,7 +174,8 @@ export default function RegisterPage() {
       }
 
       if (!validateEmail(formData.official_email)) {
-        newErrors.official_email = "Please enter a valid official institution email";
+        newErrors.official_email =
+          "Please enter a valid official institution email";
       } else {
         const officialDomain = getEmailDomain(formData.official_email);
         if (disallowedOfficialEmailDomains.includes(officialDomain)) {
