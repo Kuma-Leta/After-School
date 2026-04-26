@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminRequest } from "@/features/admin/server/auth";
-import { listUsersForAdmin } from "@/features/admin/server/users";
+import {
+  createOrganizationOrFamilyByAdmin,
+  listUsersForAdmin,
+} from "@/features/admin/server/users";
 
 export async function GET(request) {
   try {
@@ -25,6 +28,33 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Failed to load users." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const access = await requireAdminRequest();
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status },
+      );
+    }
+
+    const payload = await request.json();
+    const item = await createOrganizationOrFamilyByAdmin(
+      access.adminClient,
+      access.user.id,
+      payload,
+    );
+
+    return NextResponse.json({ item }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create account." },
       { status: 500 },
     );
   }
