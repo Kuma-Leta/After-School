@@ -141,6 +141,27 @@ export function useEmployerJobs(user) {
         return;
       }
 
+      let availabilityByApplicantId = {};
+      try {
+        const availabilityResponse = await fetch(
+          `/api/interviews/application-availability?jobId=${jobId}`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
+        const availabilityPayload = await availabilityResponse
+          .json()
+          .catch(() => ({}));
+
+        if (availabilityResponse.ok) {
+          availabilityByApplicantId =
+            availabilityPayload.availabilityByApplicantId || {};
+        }
+      } catch {
+        // Availability is optional in this view; keep applicants visible even on failure.
+      }
+
       // Get all applicant profiles WITH EMAIL
       const applicantIds = applications.map((app) => app.applicant_id);
       const uniqueApplicantIds = Array.from(
@@ -237,6 +258,10 @@ export function useEmployerJobs(user) {
               averageScore: 0,
               reviewCount: 0,
             },
+            serviceAvailability:
+              availabilityByApplicantId[application.applicant_id] || [],
+            weeklyAvailability:
+              availabilityByApplicantId[application.applicant_id] || [],
           },
         };
       });

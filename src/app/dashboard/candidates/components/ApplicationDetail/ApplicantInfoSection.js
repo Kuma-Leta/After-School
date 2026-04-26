@@ -13,6 +13,27 @@ import {
 } from "lucide-react";
 import { resolveAvatarSrc } from "@/lib/avatar";
 
+const DAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function formatTime(value) {
+  if (!value) return "";
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${normalizedHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
 export default function ApplicantInfoSection({ applicant, application, job }) {
   const calculateAge = (dateOfBirth) => {
     if (!dateOfBirth) return null;
@@ -55,6 +76,10 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
     reviewCount: 0,
   };
   const avatarSrc = resolveAvatarSrc(applicant?.avatarUrl);
+  const serviceAvailability =
+    applicant?.serviceAvailability || applicant?.weeklyAvailability || [];
+
+  const availableDays = serviceAvailability.filter((slot) => slot?.isAvailable);
 
   return (
     <div className="space-y-6">
@@ -197,6 +222,55 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Calendar className="h-5 w-5 mr-2 text-gray-400" />
+          Service Availability
+        </h4>
+
+        {serviceAvailability.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            This candidate has not added service availability yet.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {serviceAvailability
+              .slice()
+              .sort((left, right) => left.dayOfWeek - right.dayOfWeek)
+              .map((slot) => (
+                <div
+                  key={slot.dayOfWeek}
+                  className={`rounded-lg border px-3 py-2 ${
+                    slot.isAvailable
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-medium ${
+                      slot.isAvailable ? "text-emerald-900" : "text-gray-700"
+                    }`}
+                  >
+                    {DAY_LABELS[slot.dayOfWeek]}:{" "}
+                    {slot.isAvailable ? "Available" : "Not Available"}
+                  </p>
+                  {slot.isAvailable && (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}{" "}
+                      ({slot.timezone || "UTC"})
+                    </p>
+                  )}
+                  {slot.notes && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Notes: {slot.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Cover Letter */}

@@ -14,12 +14,34 @@ const getStatusColor = (status) => {
   return colors[status] || "bg-gray-100 text-gray-800";
 };
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatTime(value) {
+  if (!value) return "";
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${normalizedHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
 export default function ApplicantCard({ applicant, onClick }) {
   const ratingSummary = applicant?.applicant?.ratingSummary || {
     averageScore: 0,
     reviewCount: 0,
   };
   const avatarSrc = resolveAvatarSrc(applicant?.applicant?.avatarUrl);
+  const serviceAvailability =
+    applicant?.applicant?.serviceAvailability ||
+    applicant?.applicant?.weeklyAvailability ||
+    [];
+
+  const availableDays = serviceAvailability
+    .filter((day) => day?.isAvailable)
+    .sort((left, right) => left.dayOfWeek - right.dayOfWeek);
 
   return (
     <div
@@ -78,6 +100,25 @@ export default function ApplicantCard({ applicant, onClick }) {
             Applied {new Date(applicant.submittedAt).toLocaleDateString()}
           </span>
         </div>
+        {serviceAvailability.length > 0 ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2">
+            <p className="text-xs font-semibold text-emerald-800">
+              Service Availability
+            </p>
+            <p className="text-xs text-emerald-700 mt-1">
+              {availableDays.length > 0
+                ? `${DAY_LABELS[availableDays[0].dayOfWeek]} ${formatTime(availableDays[0].startTime)} - ${formatTime(availableDays[0].endTime)}`
+                : "No available days set"}
+              {availableDays.length > 1
+                ? ` (+${availableDays.length - 1} more days)`
+                : ""}
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">
+            No service availability has been shared yet.
+          </p>
+        )}
       </div>
 
       {applicant.coverLetter && (

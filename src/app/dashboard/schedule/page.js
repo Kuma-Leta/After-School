@@ -11,6 +11,16 @@ const EMPLOYER_ROLES = ["school", "family", "ngo"];
 const INTERVIEW_SETUP_MESSAGE =
   "Interview scheduling is not configured yet. Please run migration 20260422_interview_scheduling.sql and refresh the Supabase schema cache.";
 
+const WEEK_DAYS = [
+  { dayOfWeek: 0, label: "Sunday" },
+  { dayOfWeek: 1, label: "Monday" },
+  { dayOfWeek: 2, label: "Tuesday" },
+  { dayOfWeek: 3, label: "Wednesday" },
+  { dayOfWeek: 4, label: "Thursday" },
+  { dayOfWeek: 5, label: "Friday" },
+  { dayOfWeek: 6, label: "Saturday" },
+];
+
 function normalizeInterviewErrorMessage(payload, fallbackMessage) {
   const reason = payload?.reason || "";
   const error = payload?.error || "";
@@ -35,6 +45,23 @@ function formatDateTime(value) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function getTodayDateInputValue() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString().slice(0, 10);
+}
+
+function createDefaultServiceWeek(timezone) {
+  return WEEK_DAYS.map((day) => ({
+    dayOfWeek: day.dayOfWeek,
+    isAvailable: false,
+    startTime: "",
+    endTime: "",
+    timezone,
+    notes: "",
+  }));
 }
 
 function statusPill(status) {
@@ -102,6 +129,13 @@ export default function SchedulePage() {
   const [notice, setNotice] = useState("");
 
   const [requests, setRequests] = useState([]);
+  const [serviceAvailability, setServiceAvailability] = useState(() =>
+    createDefaultServiceWeek(
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Addis_Ababa",
+    ),
+  );
+  const [isSavingServiceAvailability, setIsSavingServiceAvailability] =
+    useState(false);
 
   const [candidates, setCandidates] = useState([]);
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
@@ -123,9 +157,14 @@ export default function SchedulePage() {
   const isEmployer = EMPLOYER_ROLES.includes(role);
 
   const loadTutorData = useCallback(async () => {
-    const requestResponse = await fetch("/api/interviews/requests", {
-      cache: "no-store",
-    });
+    const [requestResponse, availabilityResponse] = await Promise.all([
+      fetch("/api/interviews/requests", {
+        cache: "no-store",
+      }),
+      fetch("/api/interviews/service-availability", {
+        cache: "no-store",
+      }),
+    ]);
 
     const requestPayload = await requestResponse.json().catch(() => ({}));
     if (!requestResponse.ok) {
@@ -137,7 +176,26 @@ export default function SchedulePage() {
       );
     }
 
+    const availabilityPayload = await availabilityResponse
+      .json()
+      .catch(() => ({}));
+    if (!availabilityResponse.ok) {
+      throw new Error(
+        normalizeInterviewErrorMessage(
+          availabilityPayload,
+          "Failed to load service availability.",
+        ),
+      );
+    }
+
     setRequests(requestPayload.requests || []);
+    setServiceAvailability(
+      availabilityPayload.availability ||
+        createDefaultServiceWeek(
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+            "Africa/Addis_Ababa",
+        ),
+    );
   }, []);
 
   const loadEmployerData = useCallback(async () => {
@@ -242,6 +300,14 @@ export default function SchedulePage() {
     [requests],
   );
 
+  const sortedServiceAvailability = useMemo(
+    () =>
+      [...serviceAvailability].sort(
+        (left, right) => left.dayOfWeek - right.dayOfWeek,
+      ),
+    [serviceAvailability],
+  );
+
   const activeEmployerCandidate = useMemo(
     () =>
       candidates.find(
@@ -268,6 +334,71 @@ export default function SchedulePage() {
 
     setNotice(`Interview request ${status}.`);
     await loadTutorData();
+  };
+
+  const handleServiceAvailabilityToggle = (dayOfWeek, isAvailable) => {
+    setServiceAvailability((previous) =>
+      previous.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              isAvailable,
+              startTime: isAvailable ? day.startTime || "09:00" : "",
+              endTime: isAvailable ? day.endTime || "17:00" : "",
+            }
+          : day,
+      ),
+    );
+  };
+
+  const handleServiceAvailabilityFieldChange = (dayOfWeek, field, value) => {
+    setServiceAvailability((previous) =>
+      previous.map((day) =>
+        day.dayOfWeek === dayOfWeek ? { ...day, [field]: value } : day,
+      ),
+    );
+  };
+
+  const handleSaveServiceAvailability = async () => {
+    setError("");
+    setNotice("");
+
+    for (const day of serviceAvailability) {
+      if (!day.isAvailable) {
+        continue;
+      }
+
+      if (!day.startTime || !day.endTime) {
+        setError("Every available day must include a start and end time.");
+        return;
+      }
+
+      if (day.endTime <= day.startTime) {
+        setError("End time must be later than start time.");
+        return;
+      }
+    }
+
+    setIsSavingServiceAvailability(true);
+
+    const response = await fetch("/api/interviews/service-availability", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        availability: serviceAvailability,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setIsSavingServiceAvailability(false);
+      setError(payload.error || "Failed to save service availability.");
+      return;
+    }
+
+    setServiceAvailability(payload.availability || serviceAvailability);
+    setIsSavingServiceAvailability(false);
+    setNotice("Service availability updated.");
   };
 
   const handleCandidateSelection = (applicationId) => {
@@ -392,6 +523,146 @@ export default function SchedulePage() {
 
         {isTutor && (
           <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                Service Availability
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Set all days of the week as available or not available. If a day
+                is available, set the time range you can serve.
+              </p>
+
+              <div className="space-y-3">
+                {sortedServiceAvailability.map((day) => {
+                  const dayLabel =
+                    WEEK_DAYS.find((item) => item.dayOfWeek === day.dayOfWeek)
+                      ?.label || `Day ${day.dayOfWeek}`;
+
+                  return (
+                    <div
+                      key={day.dayOfWeek}
+                      className="rounded-lg border border-gray-200 px-4 py-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {dayLabel}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {day.isAvailable ? "Available" : "Not available"}
+                          </p>
+                        </div>
+                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(day.isAvailable)}
+                            onChange={(event) =>
+                              handleServiceAvailabilityToggle(
+                                day.dayOfWeek,
+                                event.target.checked,
+                              )
+                            }
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          Available
+                        </label>
+                      </div>
+
+                      {day.isAvailable && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Start
+                            </label>
+                            <input
+                              type="time"
+                              value={day.startTime || ""}
+                              onChange={(event) =>
+                                handleServiceAvailabilityFieldChange(
+                                  day.dayOfWeek,
+                                  "startTime",
+                                  event.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              End
+                            </label>
+                            <input
+                              type="time"
+                              value={day.endTime || ""}
+                              onChange={(event) =>
+                                handleServiceAvailabilityFieldChange(
+                                  day.dayOfWeek,
+                                  "endTime",
+                                  event.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Timezone
+                            </label>
+                            <input
+                              type="text"
+                              value={day.timezone || ""}
+                              onChange={(event) =>
+                                handleServiceAvailabilityFieldChange(
+                                  day.dayOfWeek,
+                                  "timezone",
+                                  event.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Notes (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={day.notes || ""}
+                              onChange={(event) =>
+                                handleServiceAvailabilityFieldChange(
+                                  day.dayOfWeek,
+                                  "notes",
+                                  event.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                              placeholder="Optional notes"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleSaveServiceAvailability}
+                  disabled={isSavingServiceAvailability}
+                  className="rounded-lg bg-[#FF1E00] px-4 py-2.5 text-white font-medium hover:bg-[#E01B00] disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSavingServiceAvailability
+                    ? "Saving..."
+                    : "Save Service Availability"}
+                </button>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Incoming Interview Requests
