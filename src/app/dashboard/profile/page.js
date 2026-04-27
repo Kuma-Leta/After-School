@@ -14,21 +14,24 @@ const CANDIDATE_ENTRY_CONFIG = {
     entryLabel: "Education Entry",
     buttonLabel: "Add Education",
     fieldName: "education_entries",
-    emptyMessage: "Add schools, degrees, or training programs you want employers to see.",
+    emptyMessage:
+      "Add schools, degrees, or training programs you want employers to see.",
   },
   certificate: {
     title: "Certificates",
     entryLabel: "Certificate",
     buttonLabel: "Add Certificate",
     fieldName: "certificate_entries",
-    emptyMessage: "Add certifications, licenses, or awards that support your profile.",
+    emptyMessage:
+      "Add certifications, licenses, or awards that support your profile.",
   },
   experience: {
     title: "Experience",
     entryLabel: "Experience Entry",
     buttonLabel: "Add Experience",
     fieldName: "experience_entries",
-    emptyMessage: "Add the work, tutoring, or internship experience that shows your background.",
+    emptyMessage:
+      "Add the work, tutoring, or internship experience that shows your background.",
   },
 };
 
@@ -392,7 +395,9 @@ export default function ProfilePage() {
     }
 
     if (!isCandidateRole(profile.role)) {
-      setError("Only candidate profiles can add education, certificates, or experience.");
+      setError(
+        "Only candidate profiles can add education, certificates, or experience.",
+      );
       return;
     }
 
@@ -415,10 +420,13 @@ export default function ProfilePage() {
     setSuccess("");
 
     try {
-      const currentRoleDetails = normalizeCandidateCollections(roleDetails || {});
+      const currentRoleDetails = normalizeCandidateCollections(
+        roleDetails || {},
+      );
       const nextEntry = {
         id:
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `${Date.now()}`,
         ...entryDraft,
@@ -454,7 +462,9 @@ export default function ProfilePage() {
       handleCloseEntryComposer();
     } catch (saveErr) {
       console.error(`Failed to save ${activeEntryType}:`, saveErr);
-      setError(saveErr.message || `Failed to save ${config.title.toLowerCase()}.`);
+      setError(
+        saveErr.message || `Failed to save ${config.title.toLowerCase()}.`,
+      );
     } finally {
       setSaving(false);
     }
@@ -807,7 +817,8 @@ export default function ProfilePage() {
                   Candidate Portfolio
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Add education, certificates, and experience directly from your profile.
+                  Add education, certificates, and experience directly from your
+                  profile.
                 </p>
               </div>
               <p className="text-sm text-gray-500">
