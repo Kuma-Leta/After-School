@@ -73,7 +73,6 @@ export async function PATCH(request, context) {
             subscription_tier: "premium",
             payment_status: "paid",
             subscription_end_date: calculateSubscriptionEndDate(),
-            last_payment_date: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
         : {

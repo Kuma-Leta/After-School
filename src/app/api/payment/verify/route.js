@@ -57,7 +57,6 @@ export async function GET(request) {
             subscription_tier: "premium",
             payment_status: "paid",
             subscription_end_date: subscriptionEnd.toISOString(),
-            last_payment_date: new Date().toISOString(),
           })
           .eq("id", transactionRecord.user_id);
       }

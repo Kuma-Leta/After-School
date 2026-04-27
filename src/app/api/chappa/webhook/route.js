@@ -84,7 +84,6 @@ export async function POST(request) {
             subscription_tier: "premium",
             payment_status: "paid",
             subscription_end_date: calculateSubscriptionEndDate(),
-            last_payment_date: nowIso,
             updated_at: nowIso,
           })
           .eq("id", upgradeRequest.user_id);
