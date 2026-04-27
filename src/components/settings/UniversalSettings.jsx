@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { User, Bell, Shield, CreditCard, Lock } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
-import { checkUserSubscription } from "@/lib/supabase/client";
+import { useSettingsUserData } from "@/hooks/useSettingsUserData";
 import SettingsSidebar from "@/app/dashboard/settings/components/SettingsSidebar";
 import ProfileSettings from "@/app/dashboard/settings/components/ProfileSettings";
 import AccountSettings from "@/app/dashboard/settings/components/AccountSettings";
@@ -22,45 +21,9 @@ const ALL_TABS = [
 
 export default function UniversalSettings() {
   const [activeTab, setActiveTab] = useState("profile");
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
-
-  const loadUserData = useCallback(async () => {
-    try {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-
-      if (!currentUser) {
-        router.push("/login");
-        return;
-      }
-
-      setUser(currentUser);
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .single();
-
-      setProfile(profileData || null);
-
-      const userSubscription = await checkUserSubscription(currentUser.id);
-      setSubscription(userSubscription);
-    } catch (error) {
-      console.error("Error loading settings:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
+  const { user, profile, subscription, loading, setProfile, setSubscription } =
+    useSettingsUserData(router);
 
   const tabs = useMemo(() => {
     if (profile?.role === "admin") {
