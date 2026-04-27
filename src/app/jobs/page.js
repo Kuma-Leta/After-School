@@ -42,6 +42,7 @@ function parseStoredJsonArray(rawValue) {
 export default function HomePage() {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
+  const [appliedJobIds, setAppliedJobIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [viewerRole, setViewerRole] = useState(null);
   const [viewerId, setViewerId] = useState(null);
@@ -225,6 +226,35 @@ export default function HomePage() {
     }
   }, []);
 
+  const loadAppliedJobs = useCallback(async () => {
+    try {
+      if (!viewerId || !["teacher", "student"].includes(viewerRole || "")) {
+        setAppliedJobIds(new Set());
+        return;
+      }
+
+      const { data: applications, error } = await supabase
+        .from("applications")
+        .select("job_id")
+        .eq("applicant_id", viewerId);
+
+      if (error) {
+        console.error("Error loading applied jobs:", error);
+        setAppliedJobIds(new Set());
+        return;
+      }
+
+      const ids = new Set(
+        (applications || []).map((application) => application.job_id),
+      );
+
+      setAppliedJobIds(ids);
+    } catch (error) {
+      console.error("Error loading applied jobs:", error);
+      setAppliedJobIds(new Set());
+    }
+  }, [viewerId, viewerRole]);
+
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
@@ -232,6 +262,10 @@ export default function HomePage() {
   useEffect(() => {
     loadViewerRole();
   }, [loadViewerRole]);
+
+  useEffect(() => {
+    loadAppliedJobs();
+  }, [loadAppliedJobs]);
 
   const syncRemotePartTimeAlerts = useCallback(
     async ({ notify = false } = {}) => {
@@ -709,6 +743,7 @@ export default function HomePage() {
                     <JobCard
                       key={job.id}
                       job={job}
+                      hasApplied={appliedJobIds.has(job.id)}
                       onClick={() => handleJobClick(job)}
                       viewerRole={viewerRole}
                       onPremiumActionBlocked={handlePremiumActionBlocked}

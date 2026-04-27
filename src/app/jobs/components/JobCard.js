@@ -3,19 +3,21 @@
 
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { useState } from "react";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 
 export default function JobCard({
   job,
   onClick,
   viewerRole,
+  hasApplied = false,
   onPremiumActionBlocked,
 }) {
   const router = useRouter();
-  const { trialStatus } = useTrialStatus(); // note: we don't need refreshTrialStatus here unless you add payment modal later
-  // Removed unused applyingJob state
+  const { trialStatus } = useTrialStatus();
   const isHiringPartnerRole = ["school", "family", "ngo"].includes(
+    (viewerRole || "").toLowerCase(),
+  );
+  const isCandidateRole = ["teacher", "student"].includes(
     (viewerRole || "").toLowerCase(),
   );
 
@@ -90,7 +92,7 @@ export default function JobCard({
         return;
       }
 
-      // All checks passed – proceed to application form
+      // All checks passed - proceed to application form
       router.push(`/jobs/${job.id}/apply`);
     } catch (error) {
       console.error("Error in applyToJob:", error);
@@ -144,27 +146,35 @@ export default function JobCard({
     );
   };
 
+  const showApplyButton = !isHiringPartnerRole && !hasApplied;
+
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:border-slate-300">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF1E00] via-[#FF6B00] to-[#FFA24A]" />
       {renderTrialStatus()}
-      <div className="p-6">
-        <div className="flex justify-between items-start mb-4">
+      <div className="p-6 md:p-7">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3
               onClick={handleViewDetails}
-              className="text-xl font-bold text-gray-900 hover:text-[#FF1E00] cursor-pointer line-clamp-2"
+              className="cursor-pointer text-xl font-extrabold tracking-tight text-slate-900 transition-colors hover:text-[#FF1E00] line-clamp-2"
             >
               {job.title}
             </h3>
-            <div className="flex items-center mt-2 space-x-3">
-              <span className="text-sm font-medium bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+            <div className="mt-3 flex flex-wrap items-center gap-2.5">
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-800">
                 {job.job_type}
               </span>
-              <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full">
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-800">
                 {job.subject}
               </span>
+              {hasApplied && isCandidateRole && (
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                  Applied
+                </span>
+              )}
               {job.organizations?.verified && (
-                <span className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full flex items-center">
+                <span className="flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
                   <svg
                     className="w-3 h-3 mr-1"
                     fill="currentColor"
@@ -181,19 +191,21 @@ export default function JobCard({
               )}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-[#FF1E00]">
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-black text-[#FF1E00]">
               {getSalaryText()}
             </div>
-            <div className="text-sm text-gray-600">per month</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              per month
+            </div>
           </div>
         </div>
 
         {/* Job Details */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center text-gray-600">
+        <div className="mb-5 grid grid-cols-1 gap-3">
+          <div className="flex items-center text-slate-700">
             <svg
-              className="w-5 h-5 mr-2 text-gray-400"
+              className="w-5 h-5 mr-2 text-slate-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -214,9 +226,9 @@ export default function JobCard({
             <span>{job.location || "Location not specified"}</span>
           </div>
 
-          <div className="flex items-center text-gray-600">
+          <div className="flex items-center text-slate-700">
             <svg
-              className="w-5 h-5 mr-2 text-gray-400"
+              className="w-5 h-5 mr-2 text-slate-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -234,9 +246,9 @@ export default function JobCard({
           </div>
 
           {Array.isArray(job.grade_levels) && job.grade_levels.length > 0 && (
-            <div className="flex items-center text-gray-600">
+            <div className="flex items-center text-slate-700">
               <svg
-                className="w-5 h-5 mr-2 text-gray-400"
+                className="w-5 h-5 mr-2 text-slate-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -253,9 +265,9 @@ export default function JobCard({
           )}
 
           {/* Organization Info */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-4">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+              <div className="mr-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100">
                 <span className="text-lg">
                   {job.organizations?.org_type === "school"
                     ? "🏫"
@@ -265,16 +277,16 @@ export default function JobCard({
                 </span>
               </div>
               <div>
-                <div className="font-medium">
+                <div className="font-semibold text-slate-900">
                   {job.organizations?.org_name || "Private Employer"}
                 </div>
-                <div className="text-sm text-gray-500 capitalize">
+                <div className="text-sm capitalize text-slate-500">
                   {job.organizations?.org_type || "Organization"}
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-slate-600">
                 Posted {formatDate(job.created_at)}
               </div>
             </div>
@@ -282,12 +294,14 @@ export default function JobCard({
         </div>
 
         {/* Job Description Preview */}
-        <p className="text-gray-600 line-clamp-3 mb-6">{job.description}</p>
+        <p className="mb-6 line-clamp-3 text-sm leading-6 text-slate-600">
+          {job.description}
+        </p>
 
         {/* Footer */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div
-            className={`px-3 py-1 rounded-full text-sm font-medium ${
+            className={`inline-flex w-fit rounded-full px-3.5 py-1.5 text-sm font-semibold ${
               daysLeft <= 0
                 ? "bg-red-100 text-red-800"
                 : daysLeft <= 3
@@ -302,22 +316,22 @@ export default function JobCard({
               ? `Apply in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`
               : "Deadline passed"}
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleViewDetails}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              className="inline-flex h-11 items-center rounded-xl border border-slate-300 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               View Details
             </button>
-            {!isHiringPartnerRole && (
+            {showApplyButton && (
               <button
                 onClick={handleApply}
                 disabled={
                   trialStatus.loading || daysLeft <= 0 || !job.is_active
                 }
-                className={`px-4 py-2 font-medium rounded-lg ${
+                className={`inline-flex h-11 items-center rounded-xl px-6 text-sm font-semibold text-white transition-colors ${
                   trialStatus.loading || daysLeft <= 0 || !job.is_active
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    ? "cursor-not-allowed bg-slate-300 text-slate-500"
                     : "bg-[#FF1E00] text-white hover:bg-[#E01B00]"
                 }`}
               >
@@ -328,10 +342,24 @@ export default function JobCard({
                     : "Apply Now"}
               </button>
             )}
+            {!showApplyButton && isCandidateRole && hasApplied && (
+              <LinkToApplicationsButton router={router} />
+            )}
           </div>
         </div>
       </div>
-    </div>
+    </article>
+  );
+}
+
+function LinkToApplicationsButton({ router }) {
+  return (
+    <button
+      onClick={() => router.push("/dashboard/applications")}
+      className="inline-flex h-11 items-center rounded-xl border border-emerald-300 bg-emerald-50 px-5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+    >
+      View Application
+    </button>
   );
 }
 
