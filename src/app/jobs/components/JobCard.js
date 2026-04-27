@@ -149,7 +149,7 @@ export default function JobCard({
   const showApplyButton = !isHiringPartnerRole && !hasApplied;
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:border-slate-300">
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:border-slate-300">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF1E00] via-[#FF6B00] to-[#FFA24A]" />
       {renderTrialStatus()}
       <div className="p-6 md:p-7">
