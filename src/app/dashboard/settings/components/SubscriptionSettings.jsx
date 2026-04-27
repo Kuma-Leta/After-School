@@ -19,6 +19,10 @@ export default function SubscriptionSettings({
 
   const normalizedRole = (profile?.role || "").toLowerCase();
   const canUpgrade = ELIGIBLE_ROLES.includes(normalizedRole);
+  const isPaidActive =
+    (subscription?.payment_status || "").toLowerCase() === "paid" &&
+    !!subscription?.subscriptionEndDate &&
+    new Date(subscription.subscriptionEndDate).getTime() > Date.now();
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -44,18 +48,16 @@ export default function SubscriptionSettings({
         ],
       };
     }
-    if (subscription?.subscriptionTier === "pro") {
+    if (subscription?.subscriptionTier === "premium" && isPaidActive) {
       return {
-        name: "Pro Plan",
+        name: "Premium Plan",
         color: "bg-green-100 text-green-800",
         icon: CheckCircle,
         features: [
           "Unlimited messages",
           "Job postings",
           "Priority support",
-          subscription.payment_status === "paid"
-            ? "Active subscription"
-            : "Payment pending",
+          "Active subscription",
         ],
       };
     }
@@ -187,7 +189,7 @@ export default function SubscriptionSettings({
                 {formatDate(subscription.trialEndDate)}
               </p>
             </div>
-          ) : subscription?.subscriptionTier === "pro" ? (
+          ) : subscription?.subscriptionTier === "premium" && isPaidActive ? (
             <div className="text-right">
               <p className="text-sm opacity-90">Next billing</p>
               <p className="text-lg font-semibold">
@@ -221,105 +223,105 @@ export default function SubscriptionSettings({
             </div>
             <div>
               <p className="font-medium text-gray-900">
-                {subscription?.payment_status === "paid"
-                  ? "**** **** **** 4242"
-                  : "No payment method"}
+                {isPaidActive ? "**** **** **** 4242" : "No payment method"}
               </p>
               <p className="text-sm text-gray-600">
-                {subscription?.payment_status === "paid"
-                  ? "Expires 12/25"
+                {isPaidActive
+                  ? `Active until ${formatDate(subscription?.subscriptionEndDate)}`
                   : "Add a card to upgrade"}
               </p>
             </div>
           </div>
           <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            {subscription?.payment_status === "paid" ? "Update" : "Add Card"}
+            {isPaidActive ? "Update" : "Add Card"}
           </button>
         </div>
       </div>
 
       {/* Upgrade Options */}
-      {subscription?.subscriptionTier !== "pro" && canUpgrade && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-blue-900 mb-2">
-                Upgrade for Teachers and University Students
-              </h3>
-              <p className="text-blue-800 text-sm mb-4">
-                Choose Chappa for instant checkout, or pay by bank transfer and
-                upload your receipt for admin verification.
-              </p>
-
-              <div className="flex flex-wrap gap-3 mb-4">
-                <button
-                  onClick={startChappaUpgrade}
-                  disabled={loading || uploadingProof}
-                  className="inline-flex items-center px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-60 transition-colors"
-                >
-                  {loading ? "Redirecting..." : "Pay with Chappa"}
-                </button>
-                <Link
-                  href="/pricing"
-                  className="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-900 rounded-lg hover:bg-blue-100 transition-colors"
-                >
-                  View Plan Details
-                </Link>
+      {(!isPaidActive || subscription?.subscriptionTier !== "premium") &&
+        canUpgrade && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
               </div>
-
-              <div className="rounded-lg border border-blue-200 bg-white p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-900">
-                  Bank transfer
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Upgrade for Teachers and University Students
+                </h3>
+                <p className="text-blue-800 text-sm mb-4">
+                  Choose Chappa for instant checkout, or pay by bank transfer
+                  and upload your receipt for admin verification.
                 </p>
-                <div className="text-sm text-gray-700 space-y-1">
-                  <p>Bank: Commercial Bank of Ethiopia</p>
-                  <p>Account Name: Afterschool Technologies</p>
-                  <p>Account Number: 1000123456789</p>
+
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <button
+                    onClick={startChappaUpgrade}
+                    disabled={loading || uploadingProof}
+                    className="inline-flex items-center px-4 py-2 bg-[#FF1E00] text-white rounded-lg hover:bg-[#E01B00] disabled:opacity-60 transition-colors"
+                  >
+                    {loading ? "Redirecting..." : "Pay with Chappa"}
+                  </button>
+                  <Link
+                    href="/pricing"
+                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-900 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    View Plan Details
+                  </Link>
                 </div>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) =>
-                    setProofFile(event.target.files?.[0] || null)
-                  }
-                  className="block w-full text-sm text-gray-700"
-                />
-                <button
-                  onClick={submitBankTransferProof}
-                  disabled={uploadingProof || loading}
-                  className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-60"
-                >
-                  {uploadingProof
-                    ? "Uploading proof..."
-                    : "Submit bank transfer proof"}
-                </button>
-              </div>
 
-              {message && (
-                <p
-                  className="mt-3 text-sm text-blue-900"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {message}
-                </p>
-              )}
+                <div className="rounded-lg border border-blue-200 bg-white p-4 space-y-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Bank transfer
+                  </p>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p>Bank: Commercial Bank of Ethiopia</p>
+                    <p>Account Name: Afterschool Technologies</p>
+                    <p>Account Number: 1000123456789</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) =>
+                      setProofFile(event.target.files?.[0] || null)
+                    }
+                    className="block w-full text-sm text-gray-700"
+                  />
+                  <button
+                    onClick={submitBankTransferProof}
+                    disabled={uploadingProof || loading}
+                    className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-60"
+                  >
+                    {uploadingProof
+                      ? "Uploading proof..."
+                      : "Submit bank transfer proof"}
+                  </button>
+                </div>
+
+                {message && (
+                  <p
+                    className="mt-3 text-sm text-blue-900"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {subscription?.subscriptionTier !== "pro" && !canUpgrade && (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-6">
-          <p className="text-sm text-gray-700">
-            Upgrades are currently available for teacher and university student
-            accounts.
-          </p>
-        </div>
-      )}
+      {(!isPaidActive || subscription?.subscriptionTier !== "premium") &&
+        !canUpgrade && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-6">
+            <p className="text-sm text-gray-700">
+              Upgrades are currently available for teacher and university
+              student accounts.
+            </p>
+          </div>
+        )}
 
       {/* Billing History */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">

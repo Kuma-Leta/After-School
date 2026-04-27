@@ -3,7 +3,7 @@ import { requireAdminRequest } from "@/features/admin/server/auth";
 
 function calculateSubscriptionEndDate() {
   const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 1);
+  endDate.setMonth(endDate.getMonth() + 1);
   return endDate.toISOString();
 }
 
@@ -43,7 +43,7 @@ export async function PATCH(request, context) {
       );
     }
 
-    const nextStatus = action === "approve" ? "approved" : "rejected";
+    const nextStatus = action === "approve" ? "paid" : "rejected";
 
     const { data: updatedRequest, error: updateError } =
       await access.adminClient

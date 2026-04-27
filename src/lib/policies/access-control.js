@@ -20,8 +20,9 @@ export const APPLICATION_STATUS_UPDATES = [
 function isCandidateSubscriptionActive(profile) {
   if (!profile) return false;
 
-  if ((profile.payment_status || "").toLowerCase() === "paid") {
-    return true;
+  const paymentStatus = (profile.payment_status || "").toLowerCase();
+  if (paymentStatus === "paid" && profile.subscription_end_date) {
+    return new Date(profile.subscription_end_date).getTime() > Date.now();
   }
 
   const isTrial = (profile.subscription_tier || "").toLowerCase() === "trial";
@@ -58,7 +59,7 @@ export async function resolveRequestActor(supabase) {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, role, location, subscription_tier, payment_status, trial_end_date",
+      "id, role, location, subscription_tier, payment_status, trial_end_date, subscription_end_date",
     )
     .eq("id", user.id)
     .maybeSingle();

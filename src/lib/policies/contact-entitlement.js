@@ -13,8 +13,8 @@ function isSubscriptionActive(profile) {
   if (!profile) return false;
 
   const paymentStatus = (profile.payment_status || "").toLowerCase();
-  if (paymentStatus === "paid") {
-    return true;
+  if (paymentStatus === "paid" && profile.subscription_end_date) {
+    return new Date(profile.subscription_end_date).getTime() > Date.now();
   }
 
   const subscriptionTier = (profile.subscription_tier || "").toLowerCase();
@@ -55,7 +55,9 @@ export async function evaluateEmployerContactEntitlement({
         .maybeSingle(),
       supabase
         .from("profiles")
-        .select("id, role, subscription_tier, payment_status, trial_end_date")
+        .select(
+          "id, role, subscription_tier, payment_status, trial_end_date, subscription_end_date",
+        )
         .eq("id", candidateId)
         .maybeSingle(),
       adminClient.auth.admin.getUserById(employerId),

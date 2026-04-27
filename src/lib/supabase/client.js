@@ -10,7 +10,9 @@ export async function checkUserSubscription(userId) {
   try {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("subscription_tier, trial_end_date, payment_status")
+      .select(
+        "subscription_tier, trial_end_date, subscription_end_date, payment_status",
+      )
       .eq("id", userId)
       .single();
 
@@ -20,13 +22,24 @@ export async function checkUserSubscription(userId) {
     const today = new Date();
     const isTrialActive =
       trialEnd > today && profile.subscription_tier === "trial";
-    const requiresPayment = !isTrialActive && profile.payment_status !== "paid";
+    const paymentStatus = (profile.payment_status || "").toLowerCase();
+    const subscriptionEnd = profile.subscription_end_date
+      ? new Date(profile.subscription_end_date)
+      : null;
+    const isPaidActive =
+      paymentStatus === "paid" &&
+      subscriptionEnd &&
+      subscriptionEnd.getTime() > Date.now();
+    const requiresPayment = !isTrialActive && !isPaidActive;
 
     return {
       requiresPayment,
       isTrialActive,
+      isPaidActive,
       subscriptionTier: profile.subscription_tier,
       trialEndDate: profile.trial_end_date,
+      subscriptionEndDate: profile.subscription_end_date,
+      payment_status: profile.payment_status,
     };
   } catch (error) {
     console.error("Error checking subscription:", error);

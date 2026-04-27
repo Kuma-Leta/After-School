@@ -34,7 +34,7 @@ export function useTrialStatus() {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select(
-          "trial_start_date, trial_end_date, subscription_tier, payment_status",
+          "trial_start_date, trial_end_date, subscription_tier, payment_status, subscription_end_date",
         )
         .eq("id", user.id)
         .single();
@@ -77,8 +77,15 @@ export function useTrialStatus() {
       // Check if trial is active and payment status
       const isTrialActive =
         trialDaysLeft > 0 && profile.subscription_tier === "trial";
-      const requiresPayment =
-        !isTrialActive && profile.payment_status !== "paid";
+      const paymentStatus = (profile.payment_status || "").toLowerCase();
+      const subscriptionEndDate = profile.subscription_end_date
+        ? new Date(profile.subscription_end_date)
+        : null;
+      const isPaidActive =
+        paymentStatus === "paid" &&
+        subscriptionEndDate &&
+        subscriptionEndDate.getTime() > Date.now();
+      const requiresPayment = !isTrialActive && !isPaidActive;
 
       setTrialStatus({
         isTrialActive,
@@ -106,7 +113,7 @@ export function useTrialStatus() {
       if (!user) throw new Error("User not found");
 
       const subscriptionEnd = new Date();
-      subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1); // 1 year subscription
+      subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1); // 1 month subscription
 
       await supabase
         .from("profiles")

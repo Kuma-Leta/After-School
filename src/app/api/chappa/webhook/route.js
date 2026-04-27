@@ -18,7 +18,7 @@ function createServiceRoleClient() {
 
 function calculateSubscriptionEndDate() {
   const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 1);
+  endDate.setMonth(endDate.getMonth() + 1);
   return endDate.toISOString();
 }
 

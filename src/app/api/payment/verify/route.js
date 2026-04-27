@@ -49,7 +49,7 @@ export async function GET(request) {
       if (transactionRecord) {
         // Update user subscription
         const subscriptionEnd = new Date();
-        subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+        subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1);
 
         await supabase
           .from("profiles")
