@@ -154,12 +154,6 @@ export default function DashboardLayout({ children }) {
           icon: "⭐",
           description: "Manage plan",
         },
-        {
-          href: "/dashboard/earnings",
-          label: "Earnings",
-          icon: "💰",
-          description: "View income",
-        },
       ];
     }
 
