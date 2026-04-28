@@ -105,6 +105,11 @@ export default function JobCard({
     await applyToJob();
   };
 
+  const handleUpgrade = () => {
+    const returnUrl = `/jobs/${job.id}/apply`;
+    router.push(`/payment?redirect=${encodeURIComponent(returnUrl)}`);
+  };
+
   const handleViewDetails = (e) => {
     try {
       if (onClick) {
@@ -121,6 +126,8 @@ export default function JobCard({
   };
 
   const renderTrialStatus = () => {
+    if (!isCandidateRole) return null;
+
     if (trialStatus.loading) return null;
 
     if (trialStatus.isTrialActive) {
@@ -146,7 +153,14 @@ export default function JobCard({
     );
   };
 
-  const showApplyButton = !isHiringPartnerRole && !hasApplied;
+  const showApplyButton =
+    !isHiringPartnerRole && !hasApplied && !trialStatus.requiresPayment;
+  const showUpgradeButton =
+    isCandidateRole &&
+    !trialStatus.loading &&
+    trialStatus.requiresPayment &&
+    daysLeft > 0 &&
+    job.is_active;
 
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:border-slate-300">
@@ -313,7 +327,7 @@ export default function JobCard({
           >
             ⏳{" "}
             {daysLeft > 0
-              ? `Apply in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`
+              ? `Application closes in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`
               : "Deadline passed"}
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -340,6 +354,14 @@ export default function JobCard({
                   : daysLeft <= 0 || !job.is_active
                     ? "Closed"
                     : "Apply Now"}
+              </button>
+            )}
+            {showUpgradeButton && (
+              <button
+                onClick={handleUpgrade}
+                className="inline-flex h-11 items-center rounded-xl bg-amber-700 px-6 text-sm font-semibold text-white transition-colors hover:bg-amber-800"
+              >
+                Upgrade to Apply
               </button>
             )}
             {!showApplyButton && isCandidateRole && hasApplied && (

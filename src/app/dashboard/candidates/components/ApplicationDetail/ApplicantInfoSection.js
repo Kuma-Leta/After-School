@@ -1,60 +1,18 @@
 // app/dashboard/candidates/components/ApplicationDetail/ApplicantInfoSection.js
 "use client";
 
-import {
-  User,
-  Phone,
-  MapPin,
-  Calendar,
-  FileText,
-  Download,
-  Globe,
-  Star,
-} from "lucide-react";
-import { resolveAvatarSrc } from "@/lib/avatar";
-
-const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-function formatTime(value) {
-  if (!value) return "";
-  const [hourRaw, minuteRaw] = value.split(":");
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${normalizedHour}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
+import { useState } from "react";
+import { Calendar, Download, FileText, Star } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
+import CandidateProfileModal from "@/components/profile/CandidateProfileModal";
+import { normalizeCandidateCollections } from "@/components/profile/CandidatePortfolioSection";
 
 export default function ApplicantInfoSection({ applicant, application, job }) {
-  const calculateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return null;
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
-    }
-    return age;
-  };
-
-  const formatLanguages = (languages) => {
-    if (!languages) return "Not specified";
-    if (Array.isArray(languages)) return languages.join(", ");
-    return languages;
-  };
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [candidateProfile, setCandidateProfile] = useState(null);
+  const [candidateRoleDetails, setCandidateRoleDetails] = useState({});
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -67,47 +25,106 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
     });
   };
 
-  const age = applicant.dateOfBirth
-    ? calculateAge(applicant.dateOfBirth)
-    : null;
   const resumeUrl = application.resumeUrl || application.resume_url || null;
   const ratingSummary = applicant?.ratingSummary || {
     averageScore: 0,
     reviewCount: 0,
   };
-  const avatarSrc = resolveAvatarSrc(applicant?.avatarUrl);
+
+  const getRoleTable = (role) => {
+    switch ((role || "").toLowerCase()) {
+      case "teacher":
+        return "teacher_profiles";
+      case "student":
+        return "student_profiles";
+      default:
+        return null;
+    }
+  };
+
+  const handleViewProfile = async () => {
+    if (!applicant?.id) {
+      setProfileError("Candidate profile could not be loaded.");
+      setIsProfileModalOpen(true);
+      return;
+    }
+
+    setIsProfileModalOpen(true);
+    setLoadingProfile(true);
+    setProfileError("");
+
+    try {
+      const { data: profileData, error: profileLoadError } = await supabase
+        .from("profiles")
+        .select(
+          "id, email, full_name, phone, role, location, bio, avatar_url, date_of_birth, gender, languages",
+        )
+        .eq("id", applicant.id)
+        .maybeSingle();
+
+      if (profileLoadError) throw profileLoadError;
+
+      const resolvedProfile = profileData || {
+        id: applicant.id,
+        email: applicant.email,
+        full_name: applicant.fullName,
+        phone: applicant.phone,
+        role: applicant.role,
+        location: applicant.location,
+        bio: applicant.bio,
+        avatar_url: applicant.avatarUrl,
+        date_of_birth: applicant.dateOfBirth,
+        gender: applicant.gender,
+        languages: applicant.languages,
+      };
+
+      const roleTable = getRoleTable(resolvedProfile.role || applicant.role);
+      let roleData = {};
+
+      if (roleTable) {
+        const { data: roleDetailsData, error: roleLoadError } = await supabase
+          .from(roleTable)
+          .select("*")
+          .or(`id.eq.${applicant.id},user_id.eq.${applicant.id}`)
+          .maybeSingle();
+
+        if (roleLoadError && roleLoadError.code !== "PGRST116") {
+          throw roleLoadError;
+        }
+
+        roleData = roleDetailsData || {};
+      }
+
+      setCandidateProfile(resolvedProfile);
+      setCandidateRoleDetails(normalizeCandidateCollections(roleData));
+    } catch (error) {
+      setProfileError(error?.message || "Failed to load candidate profile.");
+      setCandidateProfile(null);
+      setCandidateRoleDetails({});
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   const serviceAvailability =
     applicant?.serviceAvailability || applicant?.weeklyAvailability || [];
 
-  const availableDays = serviceAvailability.filter((slot) => slot?.isAvailable);
-
   return (
     <div className="space-y-6">
-      {/* Applicant Header */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-start space-x-4">
-          <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <div
-              role="img"
-              aria-label={applicant.fullName || "Default profile avatar"}
-              className="h-16 w-16 rounded-full bg-center bg-cover"
-              style={{ backgroundImage: `url(${avatarSrc})` }}
-            />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900">
-              {applicant.fullName}
-            </h3>
-            <p className="text-gray-600">{applicant.email}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {applicant.role && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900">
+              Candidate Profile
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">
+              View all candidate profile details in a dedicated reusable profile
+              component.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {applicant?.role && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded capitalize">
                   {applicant.role}
-                </span>
-              )}
-              {age && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                  {age} years old
                 </span>
               )}
               {ratingSummary.reviewCount > 0 && (
@@ -119,58 +136,13 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
               )}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Contact Information */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <User className="h-5 w-5 mr-2 text-gray-400" />
-          Contact Information
-        </h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {applicant.phone && (
-            <div className="flex items-center">
-              <Phone className="h-4 w-4 mr-2 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{applicant.phone}</p>
-              </div>
-            </div>
-          )}
-
-          {applicant.location && (
-            <div className="flex items-center">
-              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Location</p>
-                <p className="font-medium">{applicant.location}</p>
-              </div>
-            </div>
-          )}
-
-          {applicant.gender && (
-            <div className="flex items-center">
-              <User className="h-4 w-4 mr-2 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Gender</p>
-                <p className="font-medium">{applicant.gender}</p>
-              </div>
-            </div>
-          )}
-
-          {applicant.languages && (
-            <div className="flex items-center">
-              <Globe className="h-4 w-4 mr-2 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Languages</p>
-                <p className="font-medium">
-                  {formatLanguages(applicant.languages)}
-                </p>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleViewProfile}
+            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700"
+          >
+            View Profile
+          </button>
         </div>
       </div>
 
@@ -224,55 +196,6 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Calendar className="h-5 w-5 mr-2 text-gray-400" />
-          Service Availability
-        </h4>
-
-        {serviceAvailability.length === 0 ? (
-          <p className="text-sm text-gray-600">
-            This candidate has not added service availability yet.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {serviceAvailability
-              .slice()
-              .sort((left, right) => left.dayOfWeek - right.dayOfWeek)
-              .map((slot) => (
-                <div
-                  key={slot.dayOfWeek}
-                  className={`rounded-lg border px-3 py-2 ${
-                    slot.isAvailable
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-gray-200 bg-gray-50"
-                  }`}
-                >
-                  <p
-                    className={`text-sm font-medium ${
-                      slot.isAvailable ? "text-emerald-900" : "text-gray-700"
-                    }`}
-                  >
-                    {DAY_LABELS[slot.dayOfWeek]}:{" "}
-                    {slot.isAvailable ? "Available" : "Not Available"}
-                  </p>
-                  {slot.isAvailable && (
-                    <p className="text-xs text-emerald-700 mt-1">
-                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}{" "}
-                      ({slot.timezone || "UTC"})
-                    </p>
-                  )}
-                  {slot.notes && (
-                    <p className="text-xs text-gray-600 mt-1">
-                      Notes: {slot.notes}
-                    </p>
-                  )}
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
-
       {/* Cover Letter */}
       {application.coverLetter && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -319,15 +242,16 @@ export default function ApplicantInfoSection({ applicant, application, job }) {
         )}
       </div>
 
-      {/* About */}
-      {applicant.bio && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4">About</h4>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-gray-600 whitespace-pre-wrap">{applicant.bio}</p>
-          </div>
-        </div>
-      )}
+      <CandidateProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        loading={loadingProfile}
+        error={profileError}
+        profile={candidateProfile}
+        roleDetails={candidateRoleDetails}
+        ratingSummary={ratingSummary}
+        serviceAvailability={serviceAvailability}
+      />
     </div>
   );
 }

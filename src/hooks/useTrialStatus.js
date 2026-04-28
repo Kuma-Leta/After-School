@@ -34,7 +34,7 @@ export function useTrialStatus() {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select(
-          "trial_start_date, trial_end_date, subscription_tier, payment_status, subscription_end_date",
+          "role, trial_start_date, trial_end_date, subscription_tier, payment_status, subscription_end_date",
         )
         .eq("id", user.id)
         .single();
@@ -78,6 +78,8 @@ export function useTrialStatus() {
       const isTrialActive =
         trialDaysLeft > 0 && profile.subscription_tier === "trial";
       const paymentStatus = (profile.payment_status || "").toLowerCase();
+      const role = (profile.role || "").toLowerCase();
+      const isCandidateRole = ["teacher", "student"].includes(role);
       const subscriptionEndDate = profile.subscription_end_date
         ? new Date(profile.subscription_end_date)
         : null;
@@ -85,7 +87,7 @@ export function useTrialStatus() {
         paymentStatus === "paid" &&
         subscriptionEndDate &&
         subscriptionEndDate.getTime() > Date.now();
-      const requiresPayment = !isTrialActive && !isPaidActive;
+      const requiresPayment = isCandidateRole && !isTrialActive && !isPaidActive;
 
       setTrialStatus({
         isTrialActive,

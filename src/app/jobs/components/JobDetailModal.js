@@ -224,22 +224,26 @@ export default function JobDetailModal({
                     {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
                   </span>
                 )}
-                {trialStatus.isTrialActive && (
+                {!isHiringPartnerRole && trialStatus.isTrialActive && (
                   <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-lime-800">
                     Trial: {trialStatus.trialDaysLeft}d
                   </span>
                 )}
-                {!trialStatus.isTrialActive && trialStatus.requiresPayment && (
+                {!isHiringPartnerRole &&
+                  !trialStatus.isTrialActive &&
+                  trialStatus.requiresPayment && (
                   <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-800">
                     Payment Required
                   </span>
                 )}
-                {!trialStatus.loading && !trialStatus.requiresPayment && (
+                {!isHiringPartnerRole &&
+                  !trialStatus.loading &&
+                  !trialStatus.requiresPayment && (
                   <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800">
                     Premium Active
                   </span>
                 )}
-                {trialStatus.loading && (
+                {!isHiringPartnerRole && trialStatus.loading && (
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
                     Checking Access
                   </span>
