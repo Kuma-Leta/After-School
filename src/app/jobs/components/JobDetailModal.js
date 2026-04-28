@@ -232,17 +232,17 @@ export default function JobDetailModal({
                 {!isHiringPartnerRole &&
                   !trialStatus.isTrialActive &&
                   trialStatus.requiresPayment && (
-                  <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-800">
-                    Payment Required
-                  </span>
-                )}
+                    <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-800">
+                      Payment Required
+                    </span>
+                  )}
                 {!isHiringPartnerRole &&
                   !trialStatus.loading &&
                   !trialStatus.requiresPayment && (
-                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800">
-                    Premium Active
-                  </span>
-                )}
+                    <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800">
+                      Premium Active
+                    </span>
+                  )}
                 {!isHiringPartnerRole && trialStatus.loading && (
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
                     Checking Access

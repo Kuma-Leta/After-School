@@ -87,7 +87,8 @@ export function useTrialStatus() {
         paymentStatus === "paid" &&
         subscriptionEndDate &&
         subscriptionEndDate.getTime() > Date.now();
-      const requiresPayment = isCandidateRole && !isTrialActive && !isPaidActive;
+      const requiresPayment =
+        isCandidateRole && !isTrialActive && !isPaidActive;
 
       setTrialStatus({
         isTrialActive,
