@@ -108,6 +108,12 @@ export default function DashboardLayout({ children }) {
         description: "Dashboard home",
       },
       {
+        href: "/dashboard/pricing",
+        label: "Pricing",
+        icon: "💰",
+        description: "Compare available plans",
+      },
+      {
         href: "/dashboard/profile",
         label: "My Profile",
         icon: "👤",
