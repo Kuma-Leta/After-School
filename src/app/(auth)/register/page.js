@@ -133,6 +133,9 @@ export default function RegisterPage() {
       .trim();
   };
 
+  const normalizeEmail = (email) =>
+    (email || "").toString().trim().toLowerCase();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -206,25 +209,11 @@ export default function RegisterPage() {
     }
 
     try {
-      // Check if email already exists by trying to sign in first
-      const { data: existingAuth, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: "dummy_password_for_check", // Random password for checking
-        });
-
-      // If sign in doesn't fail with "Invalid login credentials", email might exist
-      if (!signInError || signInError.message !== "Invalid login credentials") {
-        setError(
-          "An account with this email already exists. Please try logging in instead.",
-        );
-        setLoading(false);
-        return;
-      }
+      const normalizedEmail = normalizeEmail(formData.email);
 
       // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
         options: {
           data: {
@@ -253,6 +242,18 @@ export default function RegisterPage() {
         } else {
           throw authError;
         }
+      }
+
+      // Supabase may intentionally hide account existence when email confirmations are enabled.
+      // In that case, duplicate sign-up attempts often return a user without identities.
+      if (
+        authData?.user &&
+        Array.isArray(authData.user.identities) &&
+        authData.user.identities.length === 0
+      ) {
+        throw new Error(
+          "An account with this email already exists. Please try logging in.",
+        );
       }
 
       if (authData?.user) {
