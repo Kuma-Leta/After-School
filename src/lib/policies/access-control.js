@@ -138,11 +138,15 @@ export function evaluateJobVisibilityPolicy({
   const userLocation = normalizeLocation(userProfile?.location);
   if (!userLocation) {
     return {
-      allowed: false,
-      status: 403,
-      reason: "missing_user_location",
+      allowed: true,
+      normalizedJob: validationResult.normalized,
+      reason: "missing_user_location_default_all_access",
       message:
-        "Set your city or living address in your profile to access jobs.",
+        "Set your zone and city in your profile to improve local job matching.",
+      metadata: {
+        includeRemotePartTime,
+        candidateRemotePreference,
+      },
     };
   }
 
@@ -163,7 +167,7 @@ export function evaluateJobVisibilityPolicy({
       message:
         eligibility.reason === "candidate_remote_preference_disabled"
           ? "This job supports remote work, but your remote preference is not enabled."
-          : "You can only access jobs in your city or jobs that match your remote preference.",
+          : "You can only access jobs in your zone capital city or jobs that match your remote preference.",
       metadata: {
         userLocation,
         includeRemotePartTime,

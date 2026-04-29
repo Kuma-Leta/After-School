@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/AuthProvider";
 import Link from "next/link";
+import ZoneCityPromptModal from "@/components/common/ZoneCityPromptModal";
+import { isMissingProfileLocation } from "@/lib/location/ethiopia-zones";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -14,6 +16,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [recentActivities, setRecentActivities] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -34,6 +37,11 @@ export default function DashboardPage() {
 
       if (profile) {
         setUserProfile(profile);
+        const normalizedRole = (profile.role || "").toLowerCase();
+        setShowLocationPrompt(
+          ["teacher", "student"].includes(normalizedRole) &&
+            isMissingProfileLocation(profile.location),
+        );
         await loadStats(profile.role);
         await loadRecentActivities(profile.role);
       }
@@ -580,6 +588,23 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <ZoneCityPromptModal
+        isOpen={showLocationPrompt}
+        userId={user?.id}
+        onClose={() => setShowLocationPrompt(false)}
+        onSaved={(payload) => {
+          setUserProfile((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  location: payload.location,
+                }
+              : prev,
+          );
+          setShowLocationPrompt(false);
+        }}
+      />
     </div>
   );
 }

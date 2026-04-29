@@ -89,33 +89,6 @@ export async function GET(request) {
     let visibleJobs = validJobs;
 
     if (isTalentRole(role) && validJobs.length > 0) {
-      const firstCheck = evaluateJobVisibilityPolicy({
-        job: validJobs[0],
-        userProfile: profile,
-        includeRemotePartTime,
-        candidateRemotePreference,
-        allowCrossCityBrowsing: policyControls.allowCrossCityBrowsing,
-      });
-
-      if (
-        !firstCheck.allowed &&
-        firstCheck.reason === "missing_user_location"
-      ) {
-        return NextResponse.json(
-          {
-            jobs: [],
-            policy: {
-              enforced: true,
-              includeRemotePartTime,
-              candidateRemotePreference,
-              reason: firstCheck.reason,
-            },
-            message: firstCheck.message,
-          },
-          { status: 200 },
-        );
-      }
-
       visibleJobs = validJobs
         .map((job) => ({
           job,

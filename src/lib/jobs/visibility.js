@@ -1,4 +1,9 @@
 import { normalizeJobModel } from "@/lib/jobs/model";
+import {
+  isKnownCapitalCity,
+  normalizeLocationToken,
+  parseStructuredLocation,
+} from "@/lib/location/ethiopia-zones";
 
 const REMOTE_PATTERNS = [
   "remote",
@@ -9,15 +14,42 @@ const REMOTE_PATTERNS = [
 ];
 
 export function normalizeLocation(value) {
-  return (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+  return normalizeLocationToken(value);
 }
 
 export function matchesLocalJob(jobLocation, userLocation) {
   const normalizedJobLocation = normalizeLocation(jobLocation);
   const normalizedUserLocation = normalizeLocation(userLocation);
+  const parsedJobLocation = parseStructuredLocation(jobLocation);
+  const parsedUserLocation = parseStructuredLocation(userLocation);
+  const normalizedJobCapital = normalizeLocation(parsedJobLocation.capitalCity);
+  const normalizedUserCapital = normalizeLocation(
+    parsedUserLocation.capitalCity,
+  );
 
   if (!normalizedJobLocation || !normalizedUserLocation) {
     return false;
+  }
+
+  // Primary rule: when both sides identify a known capital city, match by capital.
+  if (
+    normalizedJobCapital &&
+    normalizedUserCapital &&
+    isKnownCapitalCity(parsedJobLocation.capitalCity) &&
+    isKnownCapitalCity(parsedUserLocation.capitalCity)
+  ) {
+    return normalizedJobCapital === normalizedUserCapital;
+  }
+
+  // Secondary rule: if user has a known capital, allow exact/specific mention in job location.
+  if (
+    normalizedUserCapital &&
+    isKnownCapitalCity(parsedUserLocation.capitalCity)
+  ) {
+    return (
+      normalizedJobLocation === normalizedUserCapital ||
+      normalizedJobLocation.includes(normalizedUserCapital)
+    );
   }
 
   return (

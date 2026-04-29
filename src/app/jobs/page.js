@@ -13,6 +13,8 @@ import Header from "@/components/layout/Header";
 import { isRemotePartTimeJob } from "@/lib/jobs/visibility";
 import * as NotificationService from "@/lib/supabase/notifications";
 import UpgradePromptNotice from "@/components/payment/UpgradePromptNotice";
+import ZoneCityPromptModal from "@/components/common/ZoneCityPromptModal";
+import { isMissingProfileLocation } from "@/lib/location/ethiopia-zones";
 
 const DEFAULT_FILTERS = {
   jobType: [],
@@ -46,6 +48,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [viewerRole, setViewerRole] = useState(null);
   const [viewerId, setViewerId] = useState(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [discoveryTab, setDiscoveryTab] = useState("all");
   const [remoteOnlyPreferred, setRemoteOnlyPreferred] = useState(false);
   const [remoteAlertsEnabled, setRemoteAlertsEnabled] = useState(true);
@@ -214,15 +217,21 @@ export default function HomePage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, location")
         .eq("id", user.id)
         .maybeSingle();
 
-      setViewerRole((profile?.role || "").toLowerCase() || null);
+      const normalizedRole = (profile?.role || "").toLowerCase() || null;
+      setViewerRole(normalizedRole);
+      setShowLocationPrompt(
+        ["teacher", "student"].includes(normalizedRole || "") &&
+          isMissingProfileLocation(profile?.location),
+      );
     } catch (error) {
       console.error("Error loading viewer role:", error);
       setViewerId(null);
       setViewerRole(null);
+      setShowLocationPrompt(false);
     }
   }, []);
 
@@ -767,6 +776,16 @@ export default function HomePage() {
           }}
         />
       )}
+
+      <ZoneCityPromptModal
+        isOpen={showLocationPrompt}
+        userId={viewerId}
+        onClose={() => setShowLocationPrompt(false)}
+        onSaved={() => {
+          setShowLocationPrompt(false);
+          loadJobs();
+        }}
+      />
     </div>
   );
 }

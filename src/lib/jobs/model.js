@@ -1,3 +1,5 @@
+import { isKnownCapitalCity } from "@/lib/location/ethiopia-zones";
+
 const JOB_MODE_VALUES = ["onsite", "remote", "hybrid"];
 const EMPLOYMENT_TYPE_VALUES = [
   "full_time",
@@ -129,6 +131,16 @@ export function validateJobModel(job = {}) {
     !normalizeText(normalized.city)
   ) {
     errors.push("city is required when job_mode is onsite or hybrid.");
+  }
+
+  if (
+    ["onsite", "hybrid"].includes(normalized.job_mode) &&
+    normalizeText(normalized.city) &&
+    !isKnownCapitalCity(normalized.city)
+  ) {
+    errors.push(
+      "city must be a recognized Ethiopian zone capital city for onsite or hybrid jobs.",
+    );
   }
 
   // Prevent contradictory combinations when both fields are provided.
