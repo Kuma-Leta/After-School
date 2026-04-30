@@ -42,6 +42,7 @@ const GRADE_LEVELS = [
   "Adult Education",
 ];
 const EDUCATION_LEVELS = [
+  "University Student",
   "Diploma",
   "Bachelor's Degree",
   "Master's Degree",

@@ -23,6 +23,7 @@ const HOURS_PER_WEEK = [
 ];
 const EDUCATION_LEVELS = [
   "High School",
+  "University Student",
   "Diploma",
   "Certificate",
   "Bachelor's Degree",
