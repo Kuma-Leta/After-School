@@ -80,7 +80,7 @@ function PaymentPageContent() {
             Your free trial has ended. Subscribe to continue applying for jobs.
           </p>
           <div className="bg-gray-100 rounded-lg p-4 mb-6">
-            <div className="text-3xl font-bold text-[#FF1E00]">$10</div>
+            <div className="text-3xl font-bold text-[#FF1E00]">100 ETB</div>
             <div className="text-sm text-gray-600">per month</div>
           </div>
           <button

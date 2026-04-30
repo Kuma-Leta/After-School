@@ -17,7 +17,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$10",
+    price: "100 ETB",
     cycle: "per month",
     description: "Best for active candidates and teams hiring regularly.",
     features: [
