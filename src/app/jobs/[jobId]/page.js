@@ -156,6 +156,11 @@ export default function JobDetailPage() {
                       {job.subject}
                     </span>
                   )}
+                  {job.education_level && (
+                    <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-medium">
+                      {job.education_level}
+                    </span>
+                  )}
                   <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 font-medium">
                     {job.location || "Remote"}
                   </span>
@@ -231,6 +236,12 @@ export default function JobDetailPage() {
                     <dt className="text-gray-500">Employment</dt>
                     <dd className="text-gray-900 text-right">
                       {job.job_type || "Part-time"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-500">Education Level</dt>
+                    <dd className="text-gray-900 text-right">
+                      {job.education_level || "Not specified"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">

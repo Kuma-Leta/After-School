@@ -41,6 +41,14 @@ const GRADE_LEVELS = [
   "University",
   "Adult Education",
 ];
+const EDUCATION_LEVELS = [
+  "Diploma",
+  "Bachelor's Degree",
+  "Master's Degree",
+  "PhD",
+  "Certificate",
+  "Any",
+];
 
 function getReadableErrorMessage(error) {
   if (!error) return "Unknown error";
@@ -102,6 +110,7 @@ export default function MyJobs() {
     employment_type: "part_time",
     job_mode: "onsite",
     subject: "",
+    education_level: "",
     grade_levels: [],
     city: "",
     location: "",
@@ -314,6 +323,11 @@ export default function MyJobs() {
         return;
       }
 
+      if (!formData.education_level?.trim()) {
+        alert("Education level is required.");
+        return;
+      }
+
       const normalizedFormData = validationResult.normalized;
 
       const jobData = {
@@ -400,6 +414,7 @@ export default function MyJobs() {
       employment_type: normalizedJob.employment_type || "part_time",
       job_mode: normalizedJob.job_mode || "onsite",
       subject: normalizedJob.subject || "",
+      education_level: normalizedJob.education_level || "",
       grade_levels: Array.isArray(job.grade_levels) ? job.grade_levels : [],
       city: normalizedJob.city || "",
       location: normalizedJob.location || "",
@@ -457,6 +472,7 @@ export default function MyJobs() {
       employment_type: "part_time",
       job_mode: "onsite",
       subject: "",
+      education_level: "",
       grade_levels: [],
       city: "",
       location: "",
@@ -701,6 +717,27 @@ export default function MyJobs() {
                   {SUBJECTS.map((subject) => (
                     <option key={subject} value={subject}>
                       {subject}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Education Level */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Education Level <span className="text-red-600">*</span>
+                </label>
+                <select
+                  name="education_level"
+                  value={formData.education_level}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D10000] focus:border-[#D10000] bg-white text-gray-900"
+                  required
+                >
+                  <option value="">Select Education Level</option>
+                  {EDUCATION_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
                     </option>
                   ))}
                 </select>

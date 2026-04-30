@@ -21,6 +21,15 @@ const HOURS_PER_WEEK = [
   { value: "30_40", label: "30-40 hrs" },
   { value: "more_than_40", label: "More than 40 hrs" },
 ];
+const EDUCATION_LEVELS = [
+  "High School",
+  "Diploma",
+  "Certificate",
+  "Bachelor's Degree",
+  "Master's Degree",
+  "PhD",
+  "Any",
+];
 
 export default function JobFilters({ filters, setFilters, jobs }) {
   const [salaryRange, setSalaryRange] = useState({
@@ -34,6 +43,12 @@ export default function JobFilters({ filters, setFilters, jobs }) {
   ];
   const uniqueLocations = [
     ...new Set(jobs.map((job) => job.location).filter(Boolean)),
+  ];
+  const uniqueEducationLevels = [
+    ...new Set(jobs.map((job) => job.education_level).filter(Boolean)),
+  ];
+  const educationLevelOptions = [
+    ...new Set([...EDUCATION_LEVELS, ...uniqueEducationLevels]),
   ];
 
   const handleFilterChange = (filterType, value) => {
@@ -66,6 +81,7 @@ export default function JobFilters({ filters, setFilters, jobs }) {
     setFilters({
       jobType: [],
       category: [],
+      educationLevel: [],
       duration: [],
       hoursPerWeek: [],
       location: [],
@@ -132,6 +148,24 @@ export default function JobFilters({ filters, setFilters, jobs }) {
                 className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
               />
               <span className="ml-2 text-sm text-gray-700">{category}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Education Level Filter */}
+      <div className="mb-6">
+        <h4 className="font-medium text-gray-900 mb-3">Education Level</h4>
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+          {educationLevelOptions.map((level) => (
+            <label key={level} className="flex items-center">
+              <input
+                type="checkbox"
+                checked={filters.educationLevel.includes(level)}
+                onChange={() => handleFilterChange("educationLevel", level)}
+                className="h-4 w-4 text-[#FF1E00] focus:ring-[#FF1E00] border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">{level}</span>
             </label>
           ))}
         </div>
@@ -266,6 +300,20 @@ export default function JobFilters({ filters, setFilters, jobs }) {
                 <button
                   onClick={() => handleFilterChange("category", cat)}
                   className="ml-1 text-green-600 hover:text-green-800"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {filters.educationLevel.map((level) => (
+              <span
+                key={level}
+                className="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full"
+              >
+                {level}
+                <button
+                  onClick={() => handleFilterChange("educationLevel", level)}
+                  className="ml-1 text-indigo-600 hover:text-indigo-800"
                 >
                   ×
                 </button>

@@ -19,6 +19,7 @@ import { isMissingProfileLocation } from "@/lib/location/ethiopia-zones";
 const DEFAULT_FILTERS = {
   jobType: [],
   category: [],
+  educationLevel: [],
   duration: [],
   hoursPerWeek: [],
   location: [],
@@ -60,8 +61,6 @@ export default function HomePage() {
   const [sortBy, setSortBy] = useState("newest");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
-  const includeRemotePartTime = discoveryTab === "remote";
-
   useEffect(() => {
     const savedRemoteOnly = localStorage.getItem(REMOTE_VIEW_PREF_KEY) === "1";
     const savedRemoteAlerts = localStorage.getItem(REMOTE_ALERT_PREF_KEY);
@@ -95,6 +94,21 @@ export default function HomePage() {
 
     if (filters.category.length > 0) {
       result = result.filter((job) => filters.category.includes(job.subject));
+    }
+
+    if (filters.educationLevel.length > 0) {
+      const selectedEducationLevels = filters.educationLevel.map((level) =>
+        level.toLowerCase().trim(),
+      );
+      result = result.filter((job) => {
+        const jobEducationLevel = (job.education_level || "")
+          .toLowerCase()
+          .trim();
+        return (
+          jobEducationLevel &&
+          selectedEducationLevels.includes(jobEducationLevel)
+        );
+      });
     }
 
     if (filters.duration.length > 0) {
@@ -169,29 +183,26 @@ export default function HomePage() {
   const loadJobs = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/jobs/feed?includeRemotePartTime=${includeRemotePartTime}&candidateRemotePreference=${remoteOnlyPreferred}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        },
-      );
+      const { data: serverJobs, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-      if (!response.ok) {
-        console.error("Error fetching jobs feed:", response.statusText);
+      if (error) {
+        console.error("Error loading jobs from database:", error);
         setJobs([]);
         setFilteredJobs([]);
         return;
       }
 
-      const payload = await response.json();
-      const serverJobs = payload?.jobs || [];
+      const activeJobs = (serverJobs || []).filter((job) => {
+        if (!job?.application_deadline) return true;
+        return new Date(job.application_deadline).getTime() >= Date.now();
+      });
 
-      setJobs(serverJobs);
-      setFilteredJobs(serverJobs);
+      setJobs(activeJobs);
+      setFilteredJobs(activeJobs);
     } catch (error) {
       console.error("Error loading jobs:", error);
       setJobs([]);
@@ -199,7 +210,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [includeRemotePartTime, remoteOnlyPreferred]);
+  }, []);
 
   const loadViewerRole = useCallback(async () => {
     try {
@@ -281,23 +292,7 @@ export default function HomePage() {
       if (!remoteAlertsEnabled) return;
 
       try {
-        const response = await fetch(
-          `/api/jobs/feed?includeRemotePartTime=true`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            cache: "no-store",
-          },
-        );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = await response.json();
-        const remoteJobIds = (payload?.jobs || [])
+        const remoteJobIds = (jobs || [])
           .filter((job) => isRemotePartTimeJob(job))
           .map((job) => job.id)
           .filter(Boolean);
@@ -340,7 +335,7 @@ export default function HomePage() {
         console.error("Error checking remote part-time alerts:", error);
       }
     },
-    [remoteAlertsEnabled, viewerId],
+    [jobs, remoteAlertsEnabled, viewerId],
   );
 
   useEffect(() => {

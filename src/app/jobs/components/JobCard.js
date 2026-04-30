@@ -182,6 +182,11 @@ export default function JobCard({
               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-800">
                 {job.subject}
               </span>
+              {job.education_level && (
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-800">
+                  {job.education_level}
+                </span>
+              )}
               {hasApplied && isCandidateRole && (
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                   Applied

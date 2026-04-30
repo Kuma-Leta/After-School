@@ -390,6 +390,14 @@ export default function JobDetailModal({
                     </div>
                   </div>
                   <div>
+                    <div className="text-sm text-slate-600">
+                      Education Level
+                    </div>
+                    <div className="font-semibold text-slate-900">
+                      {job.education_level || "Not specified"}
+                    </div>
+                  </div>
+                  <div>
                     <div className="text-sm text-slate-600">Duration</div>
                     <div className="font-semibold text-slate-900">
                       {job.duration || "Not specified"}
